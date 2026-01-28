@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: cctv-analytics-api
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: cctv-db
+          property: connectionString
+
+databases:
+  - name: cctv-db
+    plan: free
+    databaseName: cctv_analytics
