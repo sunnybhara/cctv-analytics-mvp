@@ -29,9 +29,9 @@ def _get_device():
         import torch
         if torch.cuda.is_available():
             _device = torch.device('cuda')
-        elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-            _device = torch.device('mps')
         else:
+            # Force CPU for FaceNet - MPS has issues with adaptive pooling
+            # See: https://github.com/pytorch/pytorch/issues/96056
             _device = torch.device('cpu')
     return _device
 
