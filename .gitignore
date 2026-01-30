@@ -50,3 +50,5 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+yolov8n.pt
+test_phase1.py
