@@ -234,6 +234,90 @@ def generate_pseudo_id(track_id: int, date_str: str) -> str:
     return hashlib.md5(raw.encode()).hexdigest()[:12]
 
 
+# Pre-loaded model cache
+_yolo_model = None
+
+def preload_models():
+    """
+    Pre-load all ML models on startup to eliminate cold start latency.
+    First video will process immediately instead of waiting 30-60s for model loading.
+    """
+    global _yolo_model
+
+    print("=" * 50)
+    print("Pre-loading ML models...")
+    print("=" * 50)
+
+    # 1. Load video processing dependencies
+    print("[1/6] Loading video dependencies...")
+    load_video_deps()
+    print("      ✓ cv2, YOLO class, yt-dlp, DeepSort, reid, behavior")
+
+    # 2. Load YOLO model weights (the slow part)
+    print("[2/6] Loading YOLO model weights...")
+    try:
+        if YOLO is not None and _yolo_model is None:
+            _yolo_model = YOLO("yolov8n.pt")
+            print("      ✓ YOLOv8n loaded")
+    except Exception as e:
+        print(f"      ✗ YOLO failed: {e}")
+
+    # 3. Load ReID models (MTCNN + FaceNet)
+    print("[3/6] Loading ReID models (MTCNN + FaceNet)...")
+    try:
+        if reid_module is not None:
+            # This triggers lazy loading of MTCNN and FaceNet
+            reid_module._load_mtcnn()
+            reid_module._load_facenet()
+            print("      ✓ MTCNN + FaceNet loaded")
+    except Exception as e:
+        print(f"      ✗ ReID models failed: {e}")
+
+    # 4. Load demographics models
+    print("[4/6] Loading demographics models...")
+    try:
+        from demographics import _load_face_detector, _load_age_classifier, _load_gender_classifier
+        _load_face_detector()
+        _load_age_classifier()
+        _load_gender_classifier()
+        print("      ✓ Age + Gender classifiers loaded")
+    except Exception as e:
+        print(f"      ✗ Demographics failed: {e}")
+
+    # 5. Load behavior/pose model
+    print("[5/6] Loading behavior model (MediaPipe)...")
+    try:
+        if behavior_module is not None:
+            behavior_module._load_mediapipe()
+            print("      ✓ MediaPipe pose loaded")
+    except Exception as e:
+        print(f"      ✗ Behavior model failed: {e}")
+
+    # 6. Warmup inference (optional - makes first frame faster)
+    print("[6/6] Warmup inference...")
+    try:
+        import numpy as np
+        dummy = np.zeros((480, 640, 3), dtype=np.uint8)
+        if _yolo_model is not None:
+            _yolo_model(dummy, verbose=False)
+            print("      ✓ YOLO warmup complete")
+    except Exception as e:
+        print(f"      ✗ Warmup failed: {e}")
+
+    print("=" * 50)
+    print("Model pre-loading complete!")
+    print("=" * 50)
+
+
+def get_yolo_model():
+    """Get pre-loaded YOLO model or load on demand."""
+    global _yolo_model
+    if _yolo_model is None:
+        load_video_deps()
+        _yolo_model = YOLO("yolov8n.pt")
+    return _yolo_model
+
+
 def load_venue_embeddings_sync(venue_id: str, db_url: str):
     """Load all embeddings for a venue (synchronous, for use in threads)."""
     from sqlalchemy import create_engine as sync_create_engine
@@ -447,8 +531,8 @@ def process_video_file(job_id: str, video_path: str, venue_id: str, db_url: str)
         processing_jobs[job_id]["status"] = "loading_model"
         processing_jobs[job_id]["message"] = "Loading YOLO model..."
 
-        # Load YOLO model
-        model = YOLO("yolov8n.pt")  # Nano model for speed
+        # Use pre-loaded YOLO model (or load on demand if not ready)
+        model = get_yolo_model()
 
         # Initialize DeepSORT tracker - optimized for accuracy
         # max_age: frames to keep lost tracks (longer = better re-id when person reappears)
@@ -1119,6 +1203,10 @@ class StatsResponse(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await database.connect()
+    # Pre-load models in background thread to not block startup
+    import threading
+    preload_thread = threading.Thread(target=preload_models, daemon=True)
+    preload_thread.start()
     yield
     await database.disconnect()
 
