@@ -51,4 +51,7 @@ env/
 .DS_Store
 Thumbs.db
 yolov8n.pt
+yolo11n-pose.pt
+yolo11n.pt
+*.pt
 test_phase1.py

@@ -161,27 +161,27 @@ class TestBehaviorModule:
 
 
 class TestMediaPipeLoading:
-    """Test MediaPipe model loading."""
+    """Test pose model loading (YOLO11-Pose, with MediaPipe backward-compat alias)."""
 
     def test_mediapipe_loads_lazily(self):
-        """MediaPipe should not load until needed."""
-        from behavior import _mp_pose, _pose_detector
+        """Pose model should not load until needed."""
+        from behavior import _pose_model
 
         # Initially None (lazy loading)
         # Note: May already be loaded if other tests ran
         # Just verify the module structure exists
 
     def test_load_mediapipe_function(self):
-        """_load_mediapipe should return pose detector or None."""
+        """_load_mediapipe should return YOLO pose model or None."""
         from behavior import _load_mediapipe
 
         try:
-            pose = _load_mediapipe()
-            # Should either return a pose detector or None
-            if pose is not None:
-                assert hasattr(pose, 'process')
+            model = _load_mediapipe()
+            # Should either return a YOLO model or None
+            if model is not None:
+                assert hasattr(model, 'track') or hasattr(model, '__call__')
         except ImportError:
-            # MediaPipe not installed - that's OK for this test
+            # ultralytics not installed - that's OK for this test
             pass
 
 

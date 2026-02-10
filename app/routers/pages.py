@@ -1,0 +1,3316 @@
+"""
+HTML Page Endpoints
+===================
+All inline HTML page endpoints for the web UI.
+"""
+
+import html
+from datetime import datetime
+from fastapi import APIRouter
+from fastapi.responses import HTMLResponse
+
+from app.routers.advanced_analytics import get_executive_summary, get_demographics_analytics, get_zone_analytics
+from app.routers.behavior import get_behavior_analytics
+
+router = APIRouter()
+
+
+@router.get("/", response_class=HTMLResponse)
+async def root():
+    """Home dashboard with live stats."""
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>CCTV Analytics - Home</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: #0a0a0a;
+                color: #e0e0e0;
+                min-height: 100vh;
+            }
+            .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+            /* Navigation */
+            nav {
+                background: #111;
+                border-bottom: 1px solid #222;
+                padding: 0 20px;
+                position: sticky;
+                top: 0;
+                z-index: 100;
+            }
+            nav .nav-inner {
+                max-width: 1400px;
+                margin: 0 auto;
+                display: flex;
+                align-items: center;
+                gap: 40px;
+                height: 60px;
+            }
+            nav .logo {
+                font-size: 20px;
+                font-weight: bold;
+                color: #fff;
+                text-decoration: none;
+            }
+            nav .logo span { color: #3b82f6; }
+            nav .nav-links { display: flex; gap: 30px; }
+            nav a {
+                color: #888;
+                text-decoration: none;
+                font-size: 14px;
+                transition: color 0.2s;
+            }
+            nav a:hover { color: #fff; }
+            nav a.active { color: #3b82f6; }
+
+            /* Hero */
+            .hero {
+                text-align: center;
+                padding: 60px 20px;
+                background: linear-gradient(180deg, #111 0%, #0a0a0a 100%);
+                border-bottom: 1px solid #222;
+            }
+            .hero h1 {
+                font-size: 48px;
+                color: #fff;
+                margin-bottom: 15px;
+            }
+            .hero p {
+                font-size: 18px;
+                color: #888;
+                max-width: 600px;
+                margin: 0 auto 30px;
+            }
+
+            /* Stats Grid */
+            .stats-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 20px;
+                margin: 40px 0;
+            }
+            .stat-card {
+                background: #1a1a1a;
+                border-radius: 16px;
+                padding: 30px;
+                border: 1px solid #333;
+                text-align: center;
+                transition: transform 0.2s, border-color 0.2s;
+            }
+            .stat-card:hover {
+                transform: translateY(-2px);
+                border-color: #444;
+            }
+            .stat-icon { font-size: 32px; margin-bottom: 15px; }
+            .stat-value {
+                font-size: 36px;
+                font-weight: bold;
+                color: #fff;
+                margin-bottom: 5px;
+            }
+            .stat-label { color: #888; font-size: 14px; }
+
+            /* Action Cards */
+            .actions-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 20px;
+                margin: 40px 0;
+            }
+            .action-card {
+                background: #1a1a1a;
+                border-radius: 16px;
+                padding: 30px;
+                border: 1px solid #333;
+                text-decoration: none;
+                color: inherit;
+                transition: all 0.2s;
+                display: block;
+            }
+            .action-card:hover {
+                transform: translateY(-3px);
+                border-color: #3b82f6;
+                box-shadow: 0 10px 40px rgba(59, 130, 246, 0.1);
+            }
+            .action-card .icon {
+                width: 50px;
+                height: 50px;
+                border-radius: 12px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 24px;
+                margin-bottom: 20px;
+            }
+            .action-card.upload .icon { background: rgba(59, 130, 246, 0.2); }
+            .action-card.process .icon { background: rgba(168, 85, 247, 0.2); }
+            .action-card.map .icon { background: rgba(34, 197, 94, 0.2); }
+            .action-card.api .icon { background: rgba(245, 158, 11, 0.2); }
+            .action-card h3 { color: #fff; margin-bottom: 10px; font-size: 18px; }
+            .action-card p { color: #888; font-size: 14px; line-height: 1.5; }
+
+            /* Recent Activity */
+            .section { margin: 40px 0; }
+            .section h2 {
+                color: #fff;
+                margin-bottom: 20px;
+                font-size: 24px;
+            }
+            .activity-list {
+                background: #1a1a1a;
+                border-radius: 16px;
+                border: 1px solid #333;
+                overflow: hidden;
+            }
+            .activity-item {
+                display: flex;
+                align-items: center;
+                gap: 15px;
+                padding: 20px;
+                border-bottom: 1px solid #333;
+            }
+            .activity-item:last-child { border-bottom: none; }
+            .activity-icon {
+                width: 40px;
+                height: 40px;
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 18px;
+                background: #333;
+            }
+            .activity-content { flex: 1; }
+            .activity-title { color: #fff; font-weight: 500; }
+            .activity-meta { color: #666; font-size: 13px; margin-top: 3px; }
+            .activity-stat { text-align: right; }
+            .activity-stat .value { color: #fff; font-weight: bold; font-size: 18px; }
+            .activity-stat .label { color: #666; font-size: 12px; }
+
+            .empty-state {
+                text-align: center;
+                padding: 60px 20px;
+                color: #666;
+            }
+            .empty-state .icon { font-size: 48px; margin-bottom: 15px; }
+
+            /* Footer */
+            footer {
+                text-align: center;
+                padding: 40px 20px;
+                color: #666;
+                font-size: 14px;
+                border-top: 1px solid #222;
+                margin-top: 60px;
+            }
+            footer a { color: #3b82f6; text-decoration: none; }
+        </style>
+    </head>
+    <body>
+        <nav>
+            <div class="nav-inner">
+                <a href="/" class="logo">CCTV<span>Analytics</span></a>
+                <div class="nav-links">
+                    <a href="/" class="active">Home</a>
+                    <a href="/analytics">Analytics</a>
+                    <a href="/process">Process Video</a>
+                    <a href="/uploads">Batch Upload</a>
+                    <a href="/map">Map</a>
+                    <a href="/docs">API Docs</a>
+                </div>
+            </div>
+        </nav>
+
+        <div class="hero">
+            <h1>Video Analytics Platform</h1>
+            <p>Privacy-preserving analytics for retail and hospitality. Track visitors, demographics, and behavior from CCTV footage.</p>
+        </div>
+
+        <div class="container">
+            <!-- Live Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">🏢</div>
+                    <div class="stat-value" id="stat-venues">-</div>
+                    <div class="stat-label">Active Venues</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">👥</div>
+                    <div class="stat-value" id="stat-visitors">-</div>
+                    <div class="stat-label">Total Visitors</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">🎬</div>
+                    <div class="stat-value" id="stat-videos">-</div>
+                    <div class="stat-label">Videos Processed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">⏱️</div>
+                    <div class="stat-value" id="stat-queue">-</div>
+                    <div class="stat-label">In Queue</div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="section">
+                <h2>Quick Actions</h2>
+                <div class="actions-grid">
+                    <a href="/uploads" class="action-card upload">
+                        <div class="icon">📤</div>
+                        <h3>Batch Upload</h3>
+                        <p>Upload multiple videos at once. Queue them for processing and track progress in real-time.</p>
+                    </a>
+                    <a href="/process" class="action-card process">
+                        <div class="icon">🎥</div>
+                        <h3>Process Single Video</h3>
+                        <p>Upload a video file or paste a YouTube URL to analyze immediately.</p>
+                    </a>
+                    <a href="/map" class="action-card map">
+                        <div class="icon">🗺️</div>
+                        <h3>View Map</h3>
+                        <p>See all venues on an interactive map with visitor counts and zone data.</p>
+                    </a>
+                    <a href="/docs" class="action-card api">
+                        <div class="icon">📡</div>
+                        <h3>API Documentation</h3>
+                        <p>Integrate with our REST API. Full OpenAPI spec with interactive testing.</p>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="section">
+                <h2>Recent Activity</h2>
+                <div class="activity-list" id="activity-list">
+                    <div class="empty-state">
+                        <div class="icon">📊</div>
+                        <div>Loading recent activity...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>CCTV Analytics Platform &bull; <a href="/docs">API Docs</a> &bull; Database: <span id="db-type">SQLite</span></p>
+        </footer>
+
+        <script>
+            async function loadStats() {
+                try {
+                    // Load venues count
+                    const venuesResp = await fetch('/venues');
+                    const venues = await venuesResp.json();
+                    document.getElementById('stat-venues').textContent = venues.length;
+
+                    // Load batch stats
+                    const batchResp = await fetch('/api/batch/stats');
+                    const batch = await batchResp.json();
+                    document.getElementById('stat-videos').textContent = batch.queue.completed;
+                    document.getElementById('stat-queue').textContent = batch.queue.pending + batch.queue.processing;
+                    document.getElementById('stat-visitors').textContent = batch.total_visitors_detected.toLocaleString();
+
+                } catch (e) {
+                    console.error('Failed to load stats:', e);
+                }
+            }
+
+            async function loadActivity() {
+                try {
+                    const resp = await fetch('/api/batch/jobs?limit=10');
+                    const data = await resp.json();
+
+                    const list = document.getElementById('activity-list');
+
+                    if (data.jobs.length === 0) {
+                        list.innerHTML = `
+                            <div class="empty-state">
+                                <div class="icon">📭</div>
+                                <div>No activity yet. Upload some videos to get started!</div>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    list.innerHTML = data.jobs.map(job => {
+                        const icon = {
+                            'pending': '⏳',
+                            'processing': '⚙️',
+                            'completed': '✅',
+                            'failed': '❌'
+                        }[job.status] || '📹';
+
+                        const time = job.completed_at || job.started_at || job.created_at;
+                        const timeStr = time ? new Date(time).toLocaleString() : '';
+
+                        return `
+                            <div class="activity-item">
+                                <div class="activity-icon">${icon}</div>
+                                <div class="activity-content">
+                                    <div class="activity-title">${job.video_name || 'Video'}</div>
+                                    <div class="activity-meta">${job.venue_id} &bull; ${timeStr}</div>
+                                </div>
+                                <div class="activity-stat">
+                                    <div class="value">${job.visitors_detected || '-'}</div>
+                                    <div class="label">visitors</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } catch (e) {
+                    console.error('Failed to load activity:', e);
+                }
+            }
+
+            // Load on page load
+            loadStats();
+            loadActivity();
+
+            // Refresh every 5 seconds
+            setInterval(() => {
+                loadStats();
+                loadActivity();
+            }, 5000);
+        </script>
+    </body>
+    </html>
+    """
+
+
+
+@router.get("/analytics", response_class=HTMLResponse)
+async def analytics_home():
+    """Analytics home page - lists all venues with their dashboards."""
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Analytics - CCTV Analytics</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: #0a0a0a;
+                color: #e0e0e0;
+                min-height: 100vh;
+            }
+            nav {
+                background: #111;
+                border-bottom: 1px solid #222;
+                padding: 0 20px;
+                position: sticky;
+                top: 0;
+                z-index: 100;
+            }
+            nav .nav-inner {
+                max-width: 1400px;
+                margin: 0 auto;
+                display: flex;
+                align-items: center;
+                gap: 40px;
+                height: 60px;
+            }
+            nav .logo {
+                font-size: 20px;
+                font-weight: bold;
+                color: #fff;
+                text-decoration: none;
+            }
+            nav .logo span { color: #3b82f6; }
+            nav .nav-links { display: flex; gap: 30px; }
+            nav .nav-links a {
+                color: #888;
+                text-decoration: none;
+                font-size: 14px;
+                transition: color 0.2s;
+            }
+            nav .nav-links a:hover { color: #fff; }
+            nav .nav-links a.active { color: #3b82f6; }
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 40px 20px;
+            }
+            h1 { color: #fff; margin-bottom: 10px; }
+            .subtitle { color: #888; margin-bottom: 40px; }
+            .venues-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+                gap: 20px;
+            }
+            .venue-card {
+                background: #1a1a1a;
+                border: 1px solid #333;
+                border-radius: 12px;
+                padding: 25px;
+                transition: border-color 0.2s, transform 0.2s;
+            }
+            .venue-card:hover {
+                border-color: #3b82f6;
+                transform: translateY(-2px);
+            }
+            .venue-card h3 {
+                color: #fff;
+                margin-bottom: 8px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .venue-card .venue-id {
+                color: #666;
+                font-size: 12px;
+                font-family: monospace;
+                background: #0a0a0a;
+                padding: 2px 8px;
+                border-radius: 4px;
+            }
+            .venue-stats {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 15px;
+                margin: 20px 0;
+            }
+            .venue-stat {
+                text-align: center;
+            }
+            .venue-stat-value {
+                font-size: 24px;
+                font-weight: bold;
+                color: #3b82f6;
+            }
+            .venue-stat-label {
+                font-size: 11px;
+                color: #888;
+                text-transform: uppercase;
+            }
+            .venue-actions {
+                display: flex;
+                gap: 10px;
+                margin-top: 15px;
+            }
+            .btn {
+                background: #3b82f6;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-size: 14px;
+                cursor: pointer;
+                text-decoration: none;
+                flex: 1;
+                text-align: center;
+            }
+            .btn:hover { background: #2563eb; }
+            .btn-secondary { background: #333; }
+            .btn-secondary:hover { background: #444; }
+            .empty-state {
+                text-align: center;
+                padding: 80px 20px;
+                color: #666;
+            }
+            .empty-state h2 { color: #888; margin-bottom: 15px; }
+            .empty-state a { color: #3b82f6; }
+            .loading {
+                text-align: center;
+                padding: 60px;
+                color: #888;
+            }
+            .spinner {
+                width: 40px;
+                height: 40px;
+                border: 3px solid #333;
+                border-top-color: #3b82f6;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                margin: 0 auto 15px;
+            }
+            @keyframes spin { to { transform: rotate(360deg); } }
+        </style>
+    </head>
+    <body>
+        <nav>
+            <div class="nav-inner">
+                <a href="/" class="logo">CCTV<span>Analytics</span></a>
+                <div class="nav-links">
+                    <a href="/">Home</a>
+                    <a href="/analytics" class="active">Analytics</a>
+                    <a href="/process">Process Video</a>
+                    <a href="/uploads">Batch Upload</a>
+                    <a href="/map">Map</a>
+                    <a href="/docs">API Docs</a>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container">
+            <h1>Analytics Dashboard</h1>
+            <p class="subtitle">Select a venue to view detailed analytics</p>
+
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                Loading venues...
+            </div>
+
+            <div id="venues-grid" class="venues-grid" style="display: none;"></div>
+
+            <div id="empty-state" class="empty-state" style="display: none;">
+                <h2>No Venues Yet</h2>
+                <p>Create a venue and process some videos to see analytics here.</p>
+                <p style="margin-top: 20px;"><a href="/process">Process a video →</a></p>
+            </div>
+        </div>
+
+        <script>
+            async function loadVenues() {
+                try {
+                    const response = await fetch('/venues');
+                    const venues = await response.json();
+
+                    document.getElementById('loading').style.display = 'none';
+
+                    if (venues.length === 0) {
+                        document.getElementById('empty-state').style.display = 'block';
+                        return;
+                    }
+
+                    // Fetch stats for each venue
+                    const venueCards = await Promise.all(venues.map(async (venue) => {
+                        let stats = { unique_visitors: 0, avg_dwell_minutes: 0, return_rate: 0 };
+                        try {
+                            const statsRes = await fetch(`/analytics/${venue.id}?days=7`);
+                            if (statsRes.ok) {
+                                stats = await statsRes.json();
+                            }
+                        } catch (e) {}
+
+                        return `
+                            <div class="venue-card">
+                                <h3>
+                                    ${venue.name || venue.id}
+                                    <span class="venue-id">${venue.id}</span>
+                                </h3>
+                                <div class="venue-stats">
+                                    <div class="venue-stat">
+                                        <div class="venue-stat-value">${(stats.unique_visitors || 0).toLocaleString()}</div>
+                                        <div class="venue-stat-label">Visitors (7d)</div>
+                                    </div>
+                                    <div class="venue-stat">
+                                        <div class="venue-stat-value">${stats.avg_dwell_minutes || 0}m</div>
+                                        <div class="venue-stat-label">Avg Dwell</div>
+                                    </div>
+                                    <div class="venue-stat">
+                                        <div class="venue-stat-value">${Math.round((stats.return_rate || 0) * 100)}%</div>
+                                        <div class="venue-stat-label">Return Rate</div>
+                                    </div>
+                                </div>
+                                <div class="venue-actions">
+                                    <a href="/analytics-dashboard/${venue.id}" class="btn">View Dashboard</a>
+                                    <a href="/report/${venue.id}" class="btn btn-secondary">Report</a>
+                                </div>
+                            </div>
+                        `;
+                    }));
+
+                    document.getElementById('venues-grid').innerHTML = venueCards.join('');
+                    document.getElementById('venues-grid').style.display = 'grid';
+                } catch (error) {
+                    document.getElementById('loading').innerHTML = 'Error loading venues: ' + error.message;
+                }
+            }
+
+            loadVenues();
+        </script>
+    </body>
+    </html>
+    """
+
+
+@router.get("/process", response_class=HTMLResponse)
+async def process_page():
+    """Video processing page - upload or paste YouTube URL."""
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Process Video - CCTV Analytics</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: #0a0a0a;
+                color: #e0e0e0;
+                min-height: 100vh;
+            }
+            /* Navigation */
+            nav {
+                background: #111;
+                border-bottom: 1px solid #222;
+                padding: 0 20px;
+                position: sticky;
+                top: 0;
+                z-index: 100;
+            }
+            nav .nav-inner {
+                max-width: 1400px;
+                margin: 0 auto;
+                display: flex;
+                align-items: center;
+                gap: 40px;
+                height: 60px;
+            }
+            nav .logo {
+                font-size: 20px;
+                font-weight: bold;
+                color: #fff;
+                text-decoration: none;
+            }
+            nav .logo span { color: #3b82f6; }
+            nav .nav-links { display: flex; gap: 30px; }
+            nav .nav-links a {
+                color: #888;
+                text-decoration: none;
+                font-size: 14px;
+                transition: color 0.2s;
+            }
+            nav .nav-links a:hover { color: #fff; }
+            nav .nav-links a.active { color: #3b82f6; }
+            .container {
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 40px 20px;
+            }
+            h1 { color: #fff; margin-bottom: 10px; }
+            .subtitle { color: #888; margin-bottom: 40px; }
+            .card {
+                background: #1a1a1a;
+                border: 1px solid #333;
+                border-radius: 12px;
+                padding: 30px;
+                margin-bottom: 20px;
+            }
+            .card h3 { margin-top: 0; color: #fff; }
+            label { display: block; margin-bottom: 8px; color: #aaa; font-size: 14px; }
+            input[type="text"], input[type="file"] {
+                width: 100%;
+                padding: 12px 16px;
+                border: 1px solid #333;
+                border-radius: 8px;
+                background: #0a0a0a;
+                color: #fff;
+                font-size: 16px;
+                margin-bottom: 20px;
+            }
+            input[type="text"]:focus { border-color: #0066ff; outline: none; }
+            input[type="file"] { padding: 10px; }
+            button {
+                background: #0066ff;
+                color: white;
+                border: none;
+                padding: 14px 28px;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: 600;
+                cursor: pointer;
+                width: 100%;
+                transition: background 0.2s;
+            }
+            button:hover { background: #0052cc; }
+            button:disabled { background: #333; cursor: not-allowed; }
+            .divider {
+                text-align: center;
+                margin: 30px 0;
+                color: #555;
+                position: relative;
+            }
+            .divider::before, .divider::after {
+                content: '';
+                position: absolute;
+                top: 50%;
+                width: 45%;
+                height: 1px;
+                background: #333;
+            }
+            .divider::before { left: 0; }
+            .divider::after { right: 0; }
+            #progress-container {
+                display: none;
+                margin-top: 30px;
+            }
+            .progress-bar {
+                background: #333;
+                border-radius: 8px;
+                height: 20px;
+                overflow: hidden;
+                margin-bottom: 15px;
+            }
+            .progress-fill {
+                background: linear-gradient(90deg, #0066ff, #00ccff);
+                height: 100%;
+                width: 0%;
+                transition: width 0.3s;
+            }
+            #status-message {
+                color: #888;
+                font-size: 14px;
+                margin-bottom: 20px;
+            }
+            #result {
+                display: none;
+                background: #0d2818;
+                border: 1px solid #1e5631;
+                border-radius: 8px;
+                padding: 20px;
+                margin-top: 20px;
+            }
+            #result.error {
+                background: #2d1010;
+                border-color: #5c1e1e;
+            }
+            #result h4 { margin: 0 0 10px 0; color: #4ade80; }
+            #result.error h4 { color: #f87171; }
+            .stats-grid {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 15px;
+                margin-top: 15px;
+            }
+            .stat-box {
+                background: #0a0a0a;
+                padding: 15px;
+                border-radius: 8px;
+                text-align: center;
+            }
+            .stat-value { font-size: 24px; font-weight: bold; color: #fff; }
+            .stat-label { font-size: 12px; color: #666; margin-top: 5px; }
+            .btn-secondary {
+                background: #333;
+                margin-top: 20px;
+            }
+            .btn-secondary:hover { background: #444; }
+            a { color: #3b82f6; text-decoration: none; }
+            a:hover { text-decoration: underline; }
+        </style>
+    </head>
+    <body>
+        <nav>
+            <div class="nav-inner">
+                <a href="/" class="logo">CCTV<span>Analytics</span></a>
+                <div class="nav-links">
+                    <a href="/">Home</a>
+                    <a href="/process" class="active">Process Video</a>
+                    <a href="/uploads">Batch Upload</a>
+                    <a href="/map">Map</a>
+                    <a href="/docs">API Docs</a>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container">
+        <h1>🎥 Process Video</h1>
+        <p class="subtitle">Upload a video file or paste a YouTube URL to analyze visitor traffic</p>
+
+        <div class="card">
+            <h3>Option 1: YouTube URL</h3>
+            <label for="youtube-url">Paste YouTube URL (bar, restaurant, retail scenes work best)</label>
+            <input type="text" id="youtube-url" placeholder="https://www.youtube.com/watch?v=...">
+            <button onclick="processYouTube()" id="btn-youtube">Process YouTube Video</button>
+        </div>
+
+        <div class="divider">OR</div>
+
+        <div class="card">
+            <h3>Option 2: Upload Video</h3>
+            <label for="video-file">Select video file (MP4, MOV, AVI)</label>
+            <input type="file" id="video-file" accept="video/*">
+            <button onclick="processUpload()" id="btn-upload">Process Uploaded Video</button>
+        </div>
+
+        <div class="card">
+            <h3>Venue Details</h3>
+            <label for="venue-id">Venue ID</label>
+            <input type="text" id="venue-id" value="demo_venue" placeholder="my_bar">
+
+            <label for="venue-name">Venue Name</label>
+            <input type="text" id="venue-name" placeholder="My Restaurant">
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <label for="venue-lat">Latitude</label>
+                    <input type="number" id="venue-lat" step="0.0001" placeholder="-26.2041">
+                </div>
+                <div>
+                    <label for="venue-lng">Longitude</label>
+                    <input type="number" id="venue-lng" step="0.0001" placeholder="28.0473">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <label for="venue-city">City</label>
+                    <input type="text" id="venue-city" placeholder="Johannesburg">
+                </div>
+                <div>
+                    <label for="venue-country">Country</label>
+                    <input type="text" id="venue-country" placeholder="South Africa">
+                </div>
+            </div>
+
+            <label for="venue-type">Venue Type</label>
+            <select id="venue-type" style="width: 100%; padding: 12px; background: #0a0a0a; color: #fff; border: 1px solid #333; border-radius: 8px; margin-bottom: 20px;">
+                <option value="">Select type...</option>
+                <option value="bar">Bar</option>
+                <option value="restaurant">Restaurant</option>
+                <option value="cafe">Cafe</option>
+                <option value="retail">Retail Store</option>
+                <option value="nightclub">Nightclub</option>
+                <option value="hotel">Hotel/Lodge</option>
+                <option value="mall">Shopping Mall</option>
+                <option value="other">Other</option>
+            </select>
+
+            <div id="map-container" style="height: 200px; border-radius: 8px; margin-bottom: 15px; background: #1a1a1a; display: flex; align-items: center; justify-content: center; color: #666;">
+                <div id="map" style="width: 100%; height: 100%; border-radius: 8px;"></div>
+            </div>
+            <p style="font-size: 12px; color: #666; margin: 0;">Click map to set location, or enter coordinates manually</p>
+        </div>
+
+        <!-- Leaflet CSS/JS for map -->
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+        <div id="progress-container" class="card">
+            <h3>Processing...</h3>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <div id="status-message">Starting...</div>
+        </div>
+
+        <div id="result">
+            <h4 id="result-title">Processing Complete</h4>
+            <p id="result-message"></p>
+            <div class="stats-grid" id="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-frames">0</div>
+                    <div class="stat-label">Frames Processed</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-visitors">0</div>
+                    <div class="stat-label">Unique Visitors</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-events">0</div>
+                    <div class="stat-label">Events Created</div>
+                </div>
+            </div>
+            <button class="btn-secondary" onclick="viewDashboard()">View Dashboard &rarr;</button>
+        </div>
+
+        <script>
+            let currentJobId = null;
+            let statusInterval = null;
+            let venueId = 'demo_venue';
+            let map = null;
+            let marker = null;
+
+            // Initialize map centered on Africa
+            document.addEventListener('DOMContentLoaded', function() {
+                map = L.map('map').setView([-26.2041, 28.0473], 4);  // Centered on South Africa
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(map);
+
+                // Click to set location
+                map.on('click', function(e) {
+                    setLocation(e.latlng.lat, e.latlng.lng);
+                });
+
+                // Update map when inputs change
+                document.getElementById('venue-lat').addEventListener('change', updateMapFromInputs);
+                document.getElementById('venue-lng').addEventListener('change', updateMapFromInputs);
+            });
+
+            function setLocation(lat, lng) {
+                document.getElementById('venue-lat').value = lat.toFixed(6);
+                document.getElementById('venue-lng').value = lng.toFixed(6);
+
+                if (marker) {
+                    marker.setLatLng([lat, lng]);
+                } else {
+                    marker = L.marker([lat, lng]).addTo(map);
+                }
+                map.setView([lat, lng], 12);
+            }
+
+            function updateMapFromInputs() {
+                const lat = parseFloat(document.getElementById('venue-lat').value);
+                const lng = parseFloat(document.getElementById('venue-lng').value);
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    setLocation(lat, lng);
+                }
+            }
+
+            function getVenueData() {
+                return {
+                    venue_id: document.getElementById('venue-id').value.trim() || 'demo_venue',
+                    venue_name: document.getElementById('venue-name').value.trim(),
+                    latitude: parseFloat(document.getElementById('venue-lat').value) || null,
+                    longitude: parseFloat(document.getElementById('venue-lng').value) || null,
+                    city: document.getElementById('venue-city').value.trim(),
+                    country: document.getElementById('venue-country').value.trim(),
+                    venue_type: document.getElementById('venue-type').value
+                };
+            }
+
+            function setButtonsEnabled(enabled) {
+                document.getElementById('btn-youtube').disabled = !enabled;
+                document.getElementById('btn-upload').disabled = !enabled;
+            }
+
+            function showProgress() {
+                document.getElementById('progress-container').style.display = 'block';
+                document.getElementById('result').style.display = 'none';
+                setButtonsEnabled(false);
+            }
+
+            function updateProgress(percent, message) {
+                document.getElementById('progress-fill').style.width = percent + '%';
+                document.getElementById('status-message').textContent = message;
+            }
+
+            function showResult(success, message, stats) {
+                document.getElementById('progress-container').style.display = 'none';
+                document.getElementById('result').style.display = 'block';
+                document.getElementById('result').className = success ? '' : 'error';
+                document.getElementById('result-title').textContent = success ? 'Processing Complete' : 'Error';
+                document.getElementById('result-message').textContent = message;
+
+                if (stats) {
+                    document.getElementById('stats-grid').style.display = 'grid';
+                    document.getElementById('stat-frames').textContent = stats.frames || 0;
+                    document.getElementById('stat-visitors').textContent = stats.visitors || 0;
+                    document.getElementById('stat-events').textContent = stats.events || 0;
+                } else {
+                    document.getElementById('stats-grid').style.display = 'none';
+                }
+
+                setButtonsEnabled(true);
+            }
+
+            function viewDashboard() {
+                window.location.href = '/analytics-dashboard/' + venueId;
+            }
+
+            async function checkStatus() {
+                if (!currentJobId) return;
+
+                try {
+                    const response = await fetch('/process/status/' + currentJobId);
+                    const data = await response.json();
+
+                    if (data.status === 'processing') {
+                        const percent = data.frames_to_process > 0
+                            ? Math.round((data.current_frame / data.frames_to_process) * 100)
+                            : 0;
+                        updateProgress(percent, data.message);
+                    } else if (data.status === 'loading_model' || data.status === 'opening_video') {
+                        updateProgress(5, data.message);
+                    } else if (data.status === 'generating_events') {
+                        updateProgress(90, data.message);
+                    } else if (data.status === 'saving_events') {
+                        updateProgress(95, data.message);
+                    } else if (data.status === 'completed') {
+                        clearInterval(statusInterval);
+                        updateProgress(100, 'Complete!');
+                        setTimeout(() => {
+                            showResult(true, data.message, {
+                                frames: data.current_frame || data.frames_to_process,
+                                visitors: data.unique_visitors,
+                                events: data.total_events
+                            });
+                        }, 500);
+                    } else if (data.status === 'error') {
+                        clearInterval(statusInterval);
+                        showResult(false, data.message);
+                    }
+                } catch (e) {
+                    console.error('Status check failed:', e);
+                }
+            }
+
+            async function processYouTube() {
+                const url = document.getElementById('youtube-url').value.trim();
+                const venueData = getVenueData();
+                venueId = venueData.venue_id;
+
+                if (!url) {
+                    alert('Please enter a YouTube URL');
+                    return;
+                }
+
+                showProgress();
+                updateProgress(0, 'Downloading video from YouTube...');
+
+                try {
+                    const response = await fetch('/process/youtube', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            url: url,
+                            venue_id: venueId,
+                            venue_name: venueData.venue_name,
+                            latitude: venueData.latitude,
+                            longitude: venueData.longitude,
+                            city: venueData.city,
+                            country: venueData.country,
+                            venue_type: venueData.venue_type
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.job_id) {
+                        currentJobId = data.job_id;
+                        statusInterval = setInterval(checkStatus, 1000);
+                    } else {
+                        showResult(false, data.detail || 'Failed to start processing');
+                    }
+                } catch (e) {
+                    showResult(false, 'Error: ' + e.message);
+                }
+            }
+
+            async function processUpload() {
+                const fileInput = document.getElementById('video-file');
+                const venueData = getVenueData();
+                venueId = venueData.venue_id;
+
+                if (!fileInput.files || !fileInput.files[0]) {
+                    alert('Please select a video file');
+                    return;
+                }
+
+                showProgress();
+                updateProgress(0, 'Uploading video...');
+
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('venue_id', venueId);
+
+                try {
+                    const response = await fetch('/process/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const data = await response.json();
+
+                    if (data.job_id) {
+                        currentJobId = data.job_id;
+                        updateProgress(5, 'Processing started...');
+                        statusInterval = setInterval(checkStatus, 1000);
+                    } else {
+                        showResult(false, data.detail || 'Failed to start processing');
+                    }
+                } catch (e) {
+                    showResult(false, 'Error: ' + e.message);
+                }
+            }
+        </script>
+        </div>
+    </body>
+    </html>
+    """
+
+
+@router.get("/dashboard/{venue_id}", response_class=HTMLResponse)
+async def dashboard(venue_id: str):
+    """Dashboard to view analytics for a venue."""
+    venue_id = html.escape(venue_id)
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Dashboard - {venue_id} - CCTV Analytics</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+            body {{
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: #0a0a0a;
+                color: #e0e0e0;
+                min-height: 100vh;
+            }}
+            /* Navigation */
+            nav {{
+                background: #111;
+                border-bottom: 1px solid #222;
+                padding: 0 20px;
+                position: sticky;
+                top: 0;
+                z-index: 100;
+            }}
+            nav .nav-inner {{
+                max-width: 1400px;
+                margin: 0 auto;
+                display: flex;
+                align-items: center;
+                gap: 40px;
+                height: 60px;
+            }}
+            nav .logo {{
+                font-size: 20px;
+                font-weight: bold;
+                color: #fff;
+                text-decoration: none;
+            }}
+            nav .logo span {{ color: #3b82f6; }}
+            nav .nav-links {{ display: flex; gap: 30px; }}
+            nav .nav-links a {{
+                color: #888;
+                text-decoration: none;
+                font-size: 14px;
+                transition: color 0.2s;
+            }}
+            nav .nav-links a:hover {{ color: #fff; }}
+            nav .nav-links a.active {{ color: #3b82f6; }}
+            .container {{
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 40px 20px;
+            }}
+            h1 {{ color: #fff; margin-bottom: 5px; }}
+            .subtitle {{ color: #888; margin-bottom: 40px; }}
+            .stats-grid {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                gap: 20px;
+                margin-bottom: 40px;
+            }}
+            .stat-card {{
+                background: #1a1a1a;
+                border: 1px solid #333;
+                border-radius: 12px;
+                padding: 25px;
+                position: relative;
+            }}
+            .stat-card.primary {{
+                border-color: #0066ff;
+                background: linear-gradient(135deg, #1a1a2e 0%, #1a1a1a 100%);
+            }}
+            .stat-value {{
+                font-size: 42px;
+                font-weight: bold;
+                color: #fff;
+                margin-bottom: 5px;
+            }}
+            .stat-card.primary .stat-value {{
+                color: #4da6ff;
+            }}
+            .stat-label {{ color: #888; font-size: 14px; font-weight: 500; }}
+            .stat-hint {{ color: #555; font-size: 11px; margin-top: 8px; }}
+            .card {{
+                background: #1a1a1a;
+                border: 1px solid #333;
+                border-radius: 12px;
+                padding: 25px;
+                margin-bottom: 20px;
+            }}
+            .card h3 {{ margin-top: 0; color: #fff; }}
+            .bar-chart {{
+                display: flex;
+                align-items: flex-end;
+                height: 200px;
+                gap: 8px;
+                padding-top: 20px;
+            }}
+            .bar {{
+                flex: 1;
+                background: linear-gradient(180deg, #0066ff, #0044aa);
+                border-radius: 4px 4px 0 0;
+                min-height: 4px;
+                position: relative;
+            }}
+            .bar-label {{
+                position: absolute;
+                bottom: -25px;
+                left: 50%;
+                transform: translateX(-50%);
+                font-size: 11px;
+                color: #666;
+            }}
+            .pie-container {{
+                display: flex;
+                justify-content: space-around;
+                flex-wrap: wrap;
+                gap: 30px;
+            }}
+            .pie-section {{
+                text-align: center;
+            }}
+            .pie-chart {{
+                width: 150px;
+                height: 150px;
+                border-radius: 50%;
+                margin: 0 auto 15px;
+            }}
+            .legend {{
+                display: flex;
+                justify-content: center;
+                gap: 20px;
+                flex-wrap: wrap;
+            }}
+            .legend-item {{
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 14px;
+            }}
+            .legend-color {{
+                width: 12px;
+                height: 12px;
+                border-radius: 3px;
+            }}
+            a {{ color: #3b82f6; text-decoration: none; }}
+            a:hover {{ text-decoration: underline; }}
+            .loading {{ text-align: center; padding: 40px; color: #888; }}
+            .actions {{
+                display: flex;
+                gap: 15px;
+                margin-bottom: 30px;
+            }}
+            .btn {{
+                background: #3b82f6;
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-size: 14px;
+                cursor: pointer;
+                text-decoration: none;
+            }}
+            .btn:hover {{ background: #0052cc; text-decoration: none; }}
+            .btn-secondary {{ background: #333; }}
+            .btn-secondary:hover {{ background: #444; }}
+            .section-title {{
+                color: #666;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin-bottom: 15px;
+            }}
+        </style>
+    </head>
+    <body>
+        <nav>
+            <div class="nav-inner">
+                <a href="/" class="logo">CCTV<span>Analytics</span></a>
+                <div class="nav-links">
+                    <a href="/">Home</a>
+                    <a href="/analytics">Analytics</a>
+                    <a href="/process">Process Video</a>
+                    <a href="/uploads">Batch Upload</a>
+                    <a href="/map">Map</a>
+                    <a href="/docs">API Docs</a>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container">
+        <h1>📊 Venue Analytics</h1>
+        <p class="subtitle">Venue: <strong>{venue_id}</strong> | Last 7 days</p>
+
+        <div class="actions">
+            <a href="/analytics-dashboard/{venue_id}" class="btn">Full Analytics Dashboard</a>
+            <a href="/process" class="btn btn-secondary">Process New Video</a>
+            <a href="/report/{venue_id}" class="btn btn-secondary">Print Report</a>
+        </div>
+
+        <div id="loading" class="loading">Loading analytics...</div>
+
+        <div id="dashboard" style="display: none;">
+            <div class="section-title">Key Metrics</div>
+            <div class="stats-grid">
+                <div class="stat-card primary">
+                    <div class="stat-value" id="unique-visitors">-</div>
+                    <div class="stat-label">People Detected</div>
+                    <div class="stat-hint" id="visitor-range">Unique individuals tracked</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="confidence">-</div>
+                    <div class="stat-label">Confidence</div>
+                    <div class="stat-hint" id="data-quality">Track quality score</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avg-dwell">-</div>
+                    <div class="stat-label">Avg Time in View</div>
+                    <div class="stat-hint">How long people stayed visible</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="peak-hour">-</div>
+                    <div class="stat-label">Peak Hour</div>
+                    <div class="stat-hint">Busiest time of day</div>
+                </div>
+            </div>
+
+            <div class="card" id="demographics-card">
+                <h3>Demographics Breakdown</h3>
+                <div id="demographics-unavailable" style="text-align: center; padding: 40px; color: #666;">
+                    No faces detected in video.<br>
+                    Demographics require visible faces (front-facing).
+                </div>
+                <div class="pie-container" id="demographics-charts" style="display: none;">
+                    <div class="pie-section">
+                        <h4>Gender</h4>
+                        <div id="gender-chart" class="pie-chart"></div>
+                        <div id="gender-legend" class="legend"></div>
+                    </div>
+                    <div class="pie-section">
+                        <h4>Age Groups</h4>
+                        <div id="age-chart" class="pie-chart"></div>
+                        <div id="age-legend" class="legend"></div>
+                    </div>
+                </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Traffic by Hour</h3>
+                <div id="hourly-chart" class="bar-chart"></div>
+            </div>
+        </div>
+
+        <script>
+            const venueId = '{venue_id}';
+
+            function createPieChart(elementId, data, colors) {{
+                const container = document.getElementById(elementId);
+                const total = Object.values(data).reduce((a, b) => a + b, 0);
+
+                if (total === 0) {{
+                    container.style.background = '#333';
+                    return;
+                }}
+
+                let gradient = 'conic-gradient(';
+                let currentAngle = 0;
+                const entries = Object.entries(data);
+
+                entries.forEach(([key, value], i) => {{
+                    const angle = (value / total) * 360;
+                    const color = colors[i % colors.length];
+                    gradient += `${{color}} ${{currentAngle}}deg ${{currentAngle + angle}}deg`;
+                    if (i < entries.length - 1) gradient += ', ';
+                    currentAngle += angle;
+                }});
+
+                gradient += ')';
+                container.style.background = gradient;
+            }}
+
+            function createLegend(elementId, data, colors) {{
+                const container = document.getElementById(elementId);
+                const total = Object.values(data).reduce((a, b) => a + b, 0);
+
+                container.innerHTML = Object.entries(data).map(([key, value], i) => {{
+                    const percent = total > 0 ? Math.round((value / total) * 100) : 0;
+                    return `
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: ${{colors[i % colors.length]}}"></div>
+                            <span>${{key}}: ${{percent}}%</span>
+                        </div>
+                    `;
+                }}).join('');
+            }}
+
+            function createBarChart(elementId, data) {{
+                const container = document.getElementById(elementId);
+                const maxValue = Math.max(...data.map(d => d.visitors), 1);
+
+                container.innerHTML = data.map(d => {{
+                    const height = (d.visitors / maxValue) * 100;
+                    return `
+                        <div class="bar" style="height: ${{Math.max(height, 2)}}%">
+                            <span class="bar-label">${{d.hour}}:00</span>
+                        </div>
+                    `;
+                }}).join('');
+            }}
+
+            async function loadData() {{
+                try {{
+                    const [statsRes, hourlyRes] = await Promise.all([
+                        fetch(`/analytics/${{venueId}}?days=7`),
+                        fetch(`/analytics/${{venueId}}/hourly`)
+                    ]);
+
+                    const stats = await statsRes.json();
+                    const hourly = await hourlyRes.json();
+
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('dashboard').style.display = 'block';
+
+                    // Update stats with clear labels
+                    document.getElementById('unique-visitors').textContent = stats.unique_visitors.toLocaleString();
+                    document.getElementById('avg-dwell').textContent = stats.avg_dwell_minutes + ' min';
+                    document.getElementById('peak-hour').textContent = stats.peak_hour !== null ? stats.peak_hour + ':00' : '-';
+
+                    // Confidence metrics
+                    if (stats.confidence_level !== null) {{
+                        document.getElementById('confidence').textContent = Math.round(stats.confidence_level * 100) + '%';
+                        document.getElementById('data-quality').textContent = 'Data quality: ' + (stats.data_quality || 'unknown');
+                        if (stats.visitor_range) {{
+                            document.getElementById('visitor-range').textContent =
+                                `Range: ${{stats.visitor_range.low}} - ${{stats.visitor_range.high}} (95% CI)`;
+                        }}
+                    }} else {{
+                        document.getElementById('confidence').textContent = '-';
+                        document.getElementById('data-quality').textContent = 'No track data';
+                    }}
+
+                    // Demographics - only show if we have real data
+                    const hasGenderData = Object.keys(stats.gender_split).some(k => k !== null && k !== 'null');
+                    const hasAgeData = Object.keys(stats.age_distribution).some(k => k !== null && k !== 'null');
+
+                    if (hasGenderData || hasAgeData) {{
+                        document.getElementById('demographics-unavailable').style.display = 'none';
+                        document.getElementById('demographics-charts').style.display = 'flex';
+
+                        // Gender chart
+                        const genderColors = ['#0066ff', '#ff6b9d'];
+                        createPieChart('gender-chart', stats.gender_split, genderColors);
+                        createLegend('gender-legend', stats.gender_split, genderColors);
+
+                        // Age chart
+                        const ageColors = ['#00cc88', '#0066ff', '#ff9500', '#ff6b6b'];
+                        createPieChart('age-chart', stats.age_distribution, ageColors);
+                        createLegend('age-legend', stats.age_distribution, ageColors);
+                    }} else {{
+                        document.getElementById('demographics-unavailable').style.display = 'block';
+                        document.getElementById('demographics-charts').style.display = 'none';
+                    }}
+
+                    // Hourly chart
+                    createBarChart('hourly-chart', hourly.hourly);
+
+                }} catch (e) {{
+                    document.getElementById('loading').textContent = 'Error loading data: ' + e.message;
+                }}
+            }}
+
+            loadData();
+        </script>
+        </div>
+    </body>
+    </html>
+    """
+
+
+@router.get("/analytics-dashboard/{venue_id}", response_class=HTMLResponse)
+async def analytics_dashboard(venue_id: str):
+    """
+    Comprehensive analytics dashboard with filters, charts, and data tables.
+    """
+    venue_id = html.escape(venue_id)
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Analytics Dashboard - {venue_id} - CCTV Analytics</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <style>
+            * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+            body {{
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: #0a0a0a;
+                color: #e0e0e0;
+                min-height: 100vh;
+            }}
+            /* Navigation */
+            nav {{
+                background: #111;
+                border-bottom: 1px solid #222;
+                padding: 0 20px;
+                position: sticky;
+                top: 0;
+                z-index: 100;
+            }}
+            nav .nav-inner {{
+                max-width: 1600px;
+                margin: 0 auto;
+                display: flex;
+                align-items: center;
+                gap: 40px;
+                height: 60px;
+            }}
+            nav .logo {{
+                font-size: 20px;
+                font-weight: bold;
+                color: #fff;
+                text-decoration: none;
+            }}
+            nav .logo span {{ color: #3b82f6; }}
+            nav .nav-links {{ display: flex; gap: 30px; }}
+            nav .nav-links a {{
+                color: #888;
+                text-decoration: none;
+                font-size: 14px;
+                transition: color 0.2s;
+            }}
+            nav .nav-links a:hover {{ color: #fff; }}
+            nav .nav-links a.active {{ color: #3b82f6; }}
+
+            .container {{
+                max-width: 1600px;
+                margin: 0 auto;
+                padding: 30px 20px;
+            }}
+
+            /* Header */
+            .page-header {{
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                margin-bottom: 30px;
+                flex-wrap: wrap;
+                gap: 20px;
+            }}
+            .page-header h1 {{ color: #fff; font-size: 28px; }}
+            .page-header .subtitle {{ color: #888; margin-top: 5px; }}
+
+            /* Filters */
+            .filters {{
+                background: #1a1a1a;
+                border: 1px solid #333;
+                border-radius: 12px;
+                padding: 20px;
+                margin-bottom: 25px;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 15px;
+                align-items: flex-end;
+            }}
+            .filter-group {{
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }}
+            .filter-group label {{
+                font-size: 12px;
+                color: #888;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }}
+            .filter-group select, .filter-group input {{
+                background: #0a0a0a;
+                border: 1px solid #333;
+                border-radius: 6px;
+                padding: 10px 14px;
+                color: #fff;
+                font-size: 14px;
+                min-width: 150px;
+            }}
+            .filter-group select:focus, .filter-group input:focus {{
+                border-color: #3b82f6;
+                outline: none;
+            }}
+            .btn {{
+                background: #3b82f6;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 6px;
+                font-size: 14px;
+                cursor: pointer;
+                text-decoration: none;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+            }}
+            .btn:hover {{ background: #2563eb; }}
+            .btn-secondary {{ background: #333; }}
+            .btn-secondary:hover {{ background: #444; }}
+            .btn-sm {{ padding: 6px 12px; font-size: 12px; }}
+
+            /* KPI Cards */
+            .kpi-grid {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 20px;
+                margin-bottom: 25px;
+            }}
+            .kpi-card {{
+                background: #1a1a1a;
+                border: 1px solid #333;
+                border-radius: 12px;
+                padding: 20px;
+            }}
+            .kpi-card.highlight {{
+                border-color: #3b82f6;
+                background: linear-gradient(135deg, #1a1a2e 0%, #1a1a1a 100%);
+            }}
+            .kpi-value {{
+                font-size: 36px;
+                font-weight: bold;
+                color: #fff;
+            }}
+            .kpi-card.highlight .kpi-value {{ color: #60a5fa; }}
+            .kpi-label {{
+                color: #888;
+                font-size: 13px;
+                margin-top: 5px;
+            }}
+            .kpi-change {{
+                font-size: 12px;
+                margin-top: 8px;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }}
+            .kpi-change.positive {{ color: #22c55e; }}
+            .kpi-change.negative {{ color: #ef4444; }}
+            .kpi-change.neutral {{ color: #888; }}
+
+            /* Charts Grid */
+            .charts-grid {{
+                display: grid;
+                grid-template-columns: 2fr 1fr;
+                gap: 20px;
+                margin-bottom: 25px;
+            }}
+            @media (max-width: 1200px) {{
+                .charts-grid {{ grid-template-columns: 1fr; }}
+            }}
+
+            .card {{
+                background: #1a1a1a;
+                border: 1px solid #333;
+                border-radius: 12px;
+                padding: 20px;
+            }}
+            .card-header {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 20px;
+            }}
+            .card-header h3 {{
+                color: #fff;
+                font-size: 16px;
+                font-weight: 600;
+            }}
+            .card-header .tabs {{
+                display: flex;
+                gap: 5px;
+            }}
+            .card-header .tab {{
+                padding: 6px 12px;
+                background: transparent;
+                border: 1px solid #333;
+                border-radius: 6px;
+                color: #888;
+                font-size: 12px;
+                cursor: pointer;
+            }}
+            .card-header .tab.active {{
+                background: #3b82f6;
+                border-color: #3b82f6;
+                color: #fff;
+            }}
+
+            .chart-container {{
+                position: relative;
+                height: 300px;
+            }}
+
+            /* Side Charts */
+            .side-charts {{
+                display: flex;
+                flex-direction: column;
+                gap: 20px;
+            }}
+            .mini-chart {{
+                height: 180px;
+            }}
+
+            /* Heatmap */
+            .heatmap-container {{
+                margin-bottom: 25px;
+            }}
+            .heatmap {{
+                display: grid;
+                grid-template-columns: 60px repeat(24, 1fr);
+                gap: 2px;
+                font-size: 11px;
+            }}
+            .heatmap-header {{
+                color: #666;
+                text-align: center;
+                padding: 5px 0;
+            }}
+            .heatmap-row-label {{
+                color: #888;
+                display: flex;
+                align-items: center;
+                padding-right: 10px;
+            }}
+            .heatmap-cell {{
+                aspect-ratio: 1;
+                border-radius: 3px;
+                min-height: 20px;
+                cursor: pointer;
+                transition: transform 0.1s;
+            }}
+            .heatmap-cell:hover {{
+                transform: scale(1.2);
+                z-index: 10;
+            }}
+            .heatmap-legend {{
+                display: flex;
+                justify-content: flex-end;
+                align-items: center;
+                gap: 10px;
+                margin-top: 15px;
+                font-size: 12px;
+                color: #888;
+            }}
+            .heatmap-legend-gradient {{
+                width: 150px;
+                height: 12px;
+                border-radius: 6px;
+                background: linear-gradient(90deg, #1a1a2e, #1e3a5f, #2563eb, #3b82f6, #60a5fa);
+            }}
+
+            /* Data Table */
+            .table-container {{
+                overflow-x: auto;
+            }}
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+            }}
+            th, td {{
+                padding: 12px 15px;
+                text-align: left;
+                border-bottom: 1px solid #333;
+            }}
+            th {{
+                color: #888;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                font-weight: 600;
+                cursor: pointer;
+                user-select: none;
+            }}
+            th:hover {{ color: #fff; }}
+            th.sorted {{ color: #3b82f6; }}
+            td {{ color: #e0e0e0; }}
+            tr:hover td {{ background: #222; }}
+
+            .progress-bar {{
+                width: 100%;
+                height: 6px;
+                background: #333;
+                border-radius: 3px;
+                overflow: hidden;
+            }}
+            .progress-bar-fill {{
+                height: 100%;
+                border-radius: 3px;
+                transition: width 0.3s;
+            }}
+
+            .badge {{
+                display: inline-block;
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 11px;
+                font-weight: 500;
+            }}
+            .badge-engaged {{ background: #22c55e33; color: #22c55e; }}
+            .badge-browsing {{ background: #3b82f633; color: #3b82f6; }}
+            .badge-waiting {{ background: #f59e0b33; color: #f59e0b; }}
+            .badge-passing {{ background: #6b728033; color: #9ca3af; }}
+
+            /* Loading */
+            .loading {{
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                padding: 60px;
+                color: #888;
+            }}
+            .spinner {{
+                width: 40px;
+                height: 40px;
+                border: 3px solid #333;
+                border-top-color: #3b82f6;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                margin-right: 15px;
+            }}
+            @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+
+            /* Tooltip */
+            .tooltip {{
+                position: absolute;
+                background: #222;
+                border: 1px solid #444;
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-size: 12px;
+                pointer-events: none;
+                z-index: 1000;
+                white-space: nowrap;
+            }}
+
+            /* Comparison Mode */
+            .comparison-toggle {{
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: #888;
+                font-size: 13px;
+            }}
+            .comparison-toggle input {{
+                width: 18px;
+                height: 18px;
+            }}
+
+            /* Export dropdown */
+            .export-dropdown {{
+                position: relative;
+            }}
+            .export-menu {{
+                position: absolute;
+                top: 100%;
+                right: 0;
+                background: #222;
+                border: 1px solid #333;
+                border-radius: 8px;
+                padding: 8px 0;
+                margin-top: 5px;
+                display: none;
+                min-width: 150px;
+                z-index: 100;
+            }}
+            .export-menu.show {{ display: block; }}
+            .export-menu a {{
+                display: block;
+                padding: 10px 15px;
+                color: #e0e0e0;
+                text-decoration: none;
+                font-size: 13px;
+            }}
+            .export-menu a:hover {{ background: #333; }}
+        </style>
+    </head>
+    <body>
+        <nav>
+            <div class="nav-inner">
+                <a href="/" class="logo">CCTV<span>Analytics</span></a>
+                <div class="nav-links">
+                    <a href="/">Home</a>
+                    <a href="/analytics">Analytics</a>
+                    <a href="/process">Process Video</a>
+                    <a href="/uploads">Batch Upload</a>
+                    <a href="/map">Map</a>
+                    <a href="/docs">API Docs</a>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container">
+            <!-- Header -->
+            <div class="page-header">
+                <div>
+                    <h1>Analytics Dashboard</h1>
+                    <p class="subtitle">Venue: <strong>{venue_id}</strong></p>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label class="comparison-toggle">
+                        <input type="checkbox" id="compare-toggle">
+                        Compare to previous period
+                    </label>
+                    <div class="export-dropdown">
+                        <button class="btn btn-secondary" onclick="toggleExportMenu()">
+                            Export
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                                <path d="M2 4l4 4 4-4"/>
+                            </svg>
+                        </button>
+                        <div class="export-menu" id="export-menu">
+                            <a href="/analytics/{venue_id}/export?format=json" target="_blank">Export JSON</a>
+                            <a href="/analytics/{venue_id}/export?format=csv">Download CSV</a>
+                            <a href="/report/{venue_id}" target="_blank">Print Report</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="filters">
+                <div class="filter-group">
+                    <label>Date Range</label>
+                    <select id="filter-days">
+                        <option value="1">Today</option>
+                        <option value="7" selected>Last 7 days</option>
+                        <option value="14">Last 14 days</option>
+                        <option value="30">Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Zone</label>
+                    <select id="filter-zone">
+                        <option value="">All Zones</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Gender</label>
+                    <select id="filter-gender">
+                        <option value="">All</option>
+                        <option value="M">Male</option>
+                        <option value="F">Female</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Age Group</label>
+                    <select id="filter-age">
+                        <option value="">All Ages</option>
+                        <option value="18-24">18-24</option>
+                        <option value="25-34">25-34</option>
+                        <option value="35-44">35-44</option>
+                        <option value="45-54">45-54</option>
+                        <option value="55+">55+</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Behavior</label>
+                    <select id="filter-behavior">
+                        <option value="">All Behaviors</option>
+                        <option value="engaged">Engaged</option>
+                        <option value="browsing">Browsing</option>
+                        <option value="waiting">Waiting</option>
+                        <option value="passing">Passing</option>
+                    </select>
+                </div>
+                <button class="btn" onclick="applyFilters()">Apply Filters</button>
+                <button class="btn btn-secondary" onclick="resetFilters()">Reset</button>
+            </div>
+
+            <!-- KPI Cards -->
+            <div class="kpi-grid" id="kpi-grid">
+                <div class="loading"><div class="spinner"></div> Loading...</div>
+            </div>
+
+            <!-- Main Charts -->
+            <div class="charts-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Traffic Trend</h3>
+                        <div class="tabs">
+                            <button class="tab active" data-view="daily">Daily</button>
+                            <button class="tab" data-view="hourly">Hourly</button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="traffic-chart"></canvas>
+                    </div>
+                </div>
+                <div class="side-charts">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Demographics</h3>
+                        </div>
+                        <div class="mini-chart">
+                            <canvas id="demographics-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Behavior Mix</h3>
+                        </div>
+                        <div class="mini-chart">
+                            <canvas id="behavior-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Heatmap -->
+            <div class="card heatmap-container">
+                <div class="card-header">
+                    <h3>Weekly Traffic Heatmap</h3>
+                    <span style="color: #888; font-size: 13px;">Visitors by day and hour</span>
+                </div>
+                <div class="heatmap" id="heatmap"></div>
+                <div class="heatmap-legend">
+                    <span>Low</span>
+                    <div class="heatmap-legend-gradient"></div>
+                    <span>High</span>
+                </div>
+            </div>
+
+            <!-- Zone Performance Table -->
+            <div class="card">
+                <div class="card-header">
+                    <h3>Zone Performance</h3>
+                    <button class="btn btn-sm btn-secondary" onclick="exportTable()">Export CSV</button>
+                </div>
+                <div class="table-container">
+                    <table id="zone-table">
+                        <thead>
+                            <tr>
+                                <th onclick="sortTable(0)">Zone</th>
+                                <th onclick="sortTable(1)">Visitors</th>
+                                <th onclick="sortTable(2)">Avg Dwell</th>
+                                <th onclick="sortTable(3)">Engagement</th>
+                                <th>Traffic Share</th>
+                                <th onclick="sortTable(5)">Top Behavior</th>
+                            </tr>
+                        </thead>
+                        <tbody id="zone-tbody">
+                            <tr><td colspan="6" class="loading"><div class="spinner"></div> Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Engagement by Hour -->
+            <div class="card" style="margin-top: 20px;">
+                <div class="card-header">
+                    <h3>Engagement by Hour</h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="engagement-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            const venueId = '{venue_id}';
+            let currentDays = 7;
+            let allData = {{}};
+            let trafficChart, demographicsChart, behaviorChart, engagementChart;
+
+            // Chart.js defaults
+            Chart.defaults.color = '#888';
+            Chart.defaults.borderColor = '#333';
+
+            // Initialize
+            document.addEventListener('DOMContentLoaded', () => {{
+                loadAllData();
+                setupEventListeners();
+            }});
+
+            function setupEventListeners() {{
+                // Tab switching
+                document.querySelectorAll('.tab').forEach(tab => {{
+                    tab.addEventListener('click', (e) => {{
+                        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                        e.target.classList.add('active');
+                        updateTrafficChart(e.target.dataset.view);
+                    }});
+                }});
+
+                // Comparison toggle
+                document.getElementById('compare-toggle').addEventListener('change', (e) => {{
+                    loadAllData();
+                }});
+            }}
+
+            async function loadAllData() {{
+                const days = document.getElementById('filter-days').value;
+                currentDays = parseInt(days);
+
+                try {{
+                    const [summary, hourly, demographics, zones, behavior, behaviorHourly, heatmap] = await Promise.all([
+                        fetch(`/analytics/${{venueId}}/summary?days=${{days}}`).then(r => r.json()),
+                        fetch(`/analytics/${{venueId}}/hourly`).then(r => r.json()),
+                        fetch(`/analytics/${{venueId}}/demographics?days=${{days}}`).then(r => r.json()),
+                        fetch(`/analytics/${{venueId}}/zones?days=${{days}}`).then(r => r.json()),
+                        fetch(`/analytics/${{venueId}}/behavior?days=${{days}}`).then(r => r.json()),
+                        fetch(`/analytics/${{venueId}}/behavior/hourly?days=${{days}}`).then(r => r.json()),
+                        fetch(`/analytics/${{venueId}}/heatmap?weeks=${{Math.ceil(days/7)}}`).then(r => r.json())
+                    ]);
+
+                    allData = {{ summary, hourly, demographics, zones, behavior, behaviorHourly, heatmap }};
+
+                    renderKPIs(summary);
+                    renderTrafficChart(hourly);
+                    renderDemographicsChart(demographics);
+                    renderBehaviorChart(behavior);
+                    renderHeatmap(heatmap);
+                    renderZoneTable(zones, behavior);
+                    renderEngagementChart(behaviorHourly);
+                    populateZoneFilter(zones);
+                }} catch (error) {{
+                    console.error('Error loading data:', error);
+                }}
+            }}
+
+            function renderKPIs(summary) {{
+                const current = summary.current || {{}};
+                const change = summary.change || {{}};
+                const showComparison = document.getElementById('compare-toggle').checked;
+
+                const kpis = [
+                    {{
+                        value: current.unique_visitors || 0,
+                        label: 'Unique Visitors',
+                        change: change.visitors_percent,
+                        highlight: true
+                    }},
+                    {{
+                        value: (current.return_rate_percent || 0) + '%',
+                        label: 'Return Rate',
+                        change: null
+                    }},
+                    {{
+                        value: (current.avg_dwell_minutes || 0) + ' min',
+                        label: 'Avg Dwell Time',
+                        change: change.dwell_minutes ? (change.dwell_minutes > 0 ? '+' : '') + change.dwell_minutes + ' min' : null
+                    }},
+                    {{
+                        value: current.peak_hour !== null ? current.peak_hour + ':00' : '-',
+                        label: 'Peak Hour',
+                        change: null
+                    }},
+                    {{
+                        value: current.avg_engagement !== null ? current.avg_engagement : '-',
+                        label: 'Avg Engagement',
+                        change: null
+                    }},
+                    {{
+                        value: (current.engaged_percent || 0) + '%',
+                        label: 'Highly Engaged',
+                        change: null
+                    }}
+                ];
+
+                document.getElementById('kpi-grid').innerHTML = kpis.map(kpi => `
+                    <div class="kpi-card ${{kpi.highlight ? 'highlight' : ''}}">
+                        <div class="kpi-value">${{kpi.value}}</div>
+                        <div class="kpi-label">${{kpi.label}}</div>
+                        ${{showComparison && kpi.change !== null ? `
+                            <div class="kpi-change ${{kpi.change > 0 ? 'positive' : kpi.change < 0 ? 'negative' : 'neutral'}}">
+                                ${{kpi.change > 0 ? '↑' : kpi.change < 0 ? '↓' : '→'}} ${{Math.abs(kpi.change)}}${{typeof kpi.change === 'number' ? '%' : ''}} vs previous
+                            </div>
+                        ` : ''}}
+                    </div>
+                `).join('');
+            }}
+
+            function renderTrafficChart(hourly) {{
+                const ctx = document.getElementById('traffic-chart').getContext('2d');
+
+                if (trafficChart) trafficChart.destroy();
+
+                const data = hourly.hourly || hourly.hourly_breakdown || [];
+
+                trafficChart = new Chart(ctx, {{
+                    type: 'line',
+                    data: {{
+                        labels: data.map(d => d.hour + ':00'),
+                        datasets: [{{
+                            label: 'Visitors',
+                            data: data.map(d => d.visitors),
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }}]
+                    }},
+                    options: {{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {{
+                            legend: {{ display: false }}
+                        }},
+                        scales: {{
+                            y: {{
+                                beginAtZero: true,
+                                grid: {{ color: '#222' }}
+                            }},
+                            x: {{
+                                grid: {{ display: false }}
+                            }}
+                        }}
+                    }}
+                }});
+            }}
+
+            function renderDemographicsChart(demographics) {{
+                const ctx = document.getElementById('demographics-chart').getContext('2d');
+
+                if (demographicsChart) demographicsChart.destroy();
+
+                const genderData = demographics.gender_split || (demographics.current && demographics.current.gender) || {{}};
+                const labels = Object.keys(genderData).filter(k => k && k !== 'null' && k !== 'undefined');
+                const values = labels.map(k => genderData[k]);
+
+                demographicsChart = new Chart(ctx, {{
+                    type: 'doughnut',
+                    data: {{
+                        labels: labels.map(l => l === 'M' ? 'Male' : l === 'F' ? 'Female' : l),
+                        datasets: [{{
+                            data: values,
+                            backgroundColor: ['#3b82f6', '#ec4899', '#8b5cf6'],
+                            borderWidth: 0
+                        }}]
+                    }},
+                    options: {{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {{
+                            legend: {{
+                                position: 'bottom',
+                                labels: {{ padding: 15, usePointStyle: true }}
+                            }}
+                        }}
+                    }}
+                }});
+            }}
+
+            function renderBehaviorChart(behavior) {{
+                const ctx = document.getElementById('behavior-chart').getContext('2d');
+
+                if (behaviorChart) behaviorChart.destroy();
+
+                const types = behavior.behavior_types || {{}};
+                const labels = Object.keys(types);
+                const values = Object.values(types);
+
+                const colors = {{
+                    'engaged': '#22c55e',
+                    'browsing': '#3b82f6',
+                    'waiting': '#f59e0b',
+                    'passing': '#6b7280'
+                }};
+
+                behaviorChart = new Chart(ctx, {{
+                    type: 'doughnut',
+                    data: {{
+                        labels: labels.map(l => l.charAt(0).toUpperCase() + l.slice(1)),
+                        datasets: [{{
+                            data: values,
+                            backgroundColor: labels.map(l => colors[l] || '#888'),
+                            borderWidth: 0
+                        }}]
+                    }},
+                    options: {{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {{
+                            legend: {{
+                                position: 'bottom',
+                                labels: {{ padding: 15, usePointStyle: true }}
+                            }}
+                        }}
+                    }}
+                }});
+            }}
+
+            function renderHeatmap(heatmap) {{
+                const container = document.getElementById('heatmap');
+                const data = heatmap.heatmap || {{}};
+                const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                const maxCount = heatmap.max_count || 1;
+
+                let html = '<div class="heatmap-header"></div>';
+                for (let h = 0; h < 24; h++) {{
+                    html += `<div class="heatmap-header">${{h}}</div>`;
+                }}
+
+                days.forEach(day => {{
+                    html += `<div class="heatmap-row-label">${{day}}</div>`;
+                    for (let h = 0; h < 24; h++) {{
+                        const count = (data[day] && data[day][h]) || 0;
+                        const intensity = count / maxCount;
+                        const color = getHeatmapColor(intensity);
+                        html += `<div class="heatmap-cell" style="background: ${{color}}" title="${{day}} ${{h}}:00 - ${{count}} visitors"></div>`;
+                    }}
+                }});
+
+                container.innerHTML = html;
+            }}
+
+            function getHeatmapColor(intensity) {{
+                if (intensity === 0) return '#1a1a2e';
+                if (intensity < 0.25) return '#1e3a5f';
+                if (intensity < 0.5) return '#2563eb';
+                if (intensity < 0.75) return '#3b82f6';
+                return '#60a5fa';
+            }}
+
+            function renderZoneTable(zones, behavior) {{
+                const tbody = document.getElementById('zone-tbody');
+                const zoneData = zones.zones || [];
+                const behaviorZones = allData.behaviorHourly || {{}};
+
+                if (zoneData.length === 0) {{
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #666; padding: 40px;">No zone data available</td></tr>';
+                    return;
+                }}
+
+                const totalVisitors = zoneData.reduce((sum, z) => sum + z.visitors, 0);
+
+                tbody.innerHTML = zoneData.map(zone => {{
+                    const share = totalVisitors > 0 ? (zone.visitors / totalVisitors * 100).toFixed(1) : 0;
+                    const engagement = zone.engagement || zone.avg_engagement || '-';
+                    const topBehavior = zone.top_behavior || 'browsing';
+
+                    return `
+                        <tr>
+                            <td><strong>${{zone.zone}}</strong></td>
+                            <td>${{zone.visitors.toLocaleString()}}</td>
+                            <td>${{zone.avg_dwell_minutes || (zone.avg_dwell_seconds / 60).toFixed(1)}} min</td>
+                            <td>${{typeof engagement === 'number' ? engagement.toFixed(1) : engagement}}</td>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div class="progress-bar" style="width: 100px;">
+                                        <div class="progress-bar-fill" style="width: ${{share}}%; background: #3b82f6;"></div>
+                                    </div>
+                                    <span>${{share}}%</span>
+                                </div>
+                            </td>
+                            <td><span class="badge badge-${{topBehavior}}">${{topBehavior}}</span></td>
+                        </tr>
+                    `;
+                }}).join('');
+            }}
+
+            function renderEngagementChart(behaviorHourly) {{
+                const ctx = document.getElementById('engagement-chart').getContext('2d');
+
+                if (engagementChart) engagementChart.destroy();
+
+                const data = behaviorHourly.hourly_engagement || [];
+
+                engagementChart = new Chart(ctx, {{
+                    type: 'bar',
+                    data: {{
+                        labels: data.map(d => d.hour + ':00'),
+                        datasets: [{{
+                            label: 'Avg Engagement',
+                            data: data.map(d => d.avg_engagement),
+                            backgroundColor: data.map(d => {{
+                                if (d.avg_engagement >= 70) return '#22c55e';
+                                if (d.avg_engagement >= 50) return '#3b82f6';
+                                return '#6b7280';
+                            }}),
+                            borderRadius: 4
+                        }}]
+                    }},
+                    options: {{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {{
+                            legend: {{ display: false }}
+                        }},
+                        scales: {{
+                            y: {{
+                                beginAtZero: true,
+                                max: 100,
+                                grid: {{ color: '#222' }},
+                                title: {{ display: true, text: 'Engagement Score' }}
+                            }},
+                            x: {{
+                                grid: {{ display: false }}
+                            }}
+                        }}
+                    }}
+                }});
+            }}
+
+            function populateZoneFilter(zones) {{
+                const select = document.getElementById('filter-zone');
+                const zoneData = zones.zones || [];
+
+                select.innerHTML = '<option value="">All Zones</option>' +
+                    zoneData.map(z => `<option value="${{z.zone}}">${{z.zone}}</option>`).join('');
+            }}
+
+            function applyFilters() {{
+                loadAllData();
+            }}
+
+            function resetFilters() {{
+                document.getElementById('filter-days').value = '7';
+                document.getElementById('filter-zone').value = '';
+                document.getElementById('filter-gender').value = '';
+                document.getElementById('filter-age').value = '';
+                document.getElementById('filter-behavior').value = '';
+                loadAllData();
+            }}
+
+            function toggleExportMenu() {{
+                document.getElementById('export-menu').classList.toggle('show');
+            }}
+
+            // Close export menu when clicking outside
+            document.addEventListener('click', (e) => {{
+                if (!e.target.closest('.export-dropdown')) {{
+                    document.getElementById('export-menu').classList.remove('show');
+                }}
+            }});
+
+            function updateTrafficChart(view) {{
+                // For now, just reload - could implement daily aggregation
+                renderTrafficChart(allData.hourly);
+            }}
+
+            let sortDirection = 1;
+            let sortColumn = -1;
+
+            function sortTable(column) {{
+                const tbody = document.getElementById('zone-tbody');
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+
+                if (sortColumn === column) {{
+                    sortDirection *= -1;
+                }} else {{
+                    sortDirection = 1;
+                    sortColumn = column;
+                }}
+
+                rows.sort((a, b) => {{
+                    let aVal = a.cells[column].textContent.trim();
+                    let bVal = b.cells[column].textContent.trim();
+
+                    // Try numeric comparison
+                    const aNum = parseFloat(aVal.replace(/[^0-9.-]/g, ''));
+                    const bNum = parseFloat(bVal.replace(/[^0-9.-]/g, ''));
+
+                    if (!isNaN(aNum) && !isNaN(bNum)) {{
+                        return (aNum - bNum) * sortDirection;
+                    }}
+
+                    return aVal.localeCompare(bVal) * sortDirection;
+                }});
+
+                rows.forEach(row => tbody.appendChild(row));
+
+                // Update header styling
+                document.querySelectorAll('th').forEach((th, i) => {{
+                    th.classList.toggle('sorted', i === column);
+                }});
+            }}
+
+            function exportTable() {{
+                const table = document.getElementById('zone-table');
+                const rows = table.querySelectorAll('tr');
+                let csv = [];
+
+                rows.forEach(row => {{
+                    const cols = row.querySelectorAll('th, td');
+                    const rowData = Array.from(cols).map(col => {{
+                        let text = col.textContent.trim().replace(/"/g, '""');
+                        return `"${{text}}"`;
+                    }});
+                    csv.push(rowData.join(','));
+                }});
+
+                const blob = new Blob([csv.join('\\n')], {{ type: 'text/csv' }});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${{venueId}}_zone_performance.csv`;
+                a.click();
+            }}
+        </script>
+    </body>
+    </html>
+    """
+
+
+@router.get("/uploads", response_class=HTMLResponse)
+async def uploads_dashboard():
+    """Dashboard to manage batch video uploads and queue."""
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Upload Manager - CCTV Analytics</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: #0a0a0a;
+                color: #e0e0e0;
+                min-height: 100vh;
+            }
+            /* Navigation */
+            nav {
+                background: #111;
+                border-bottom: 1px solid #222;
+                padding: 0 20px;
+                position: sticky;
+                top: 0;
+                z-index: 100;
+            }
+            nav .nav-inner {
+                max-width: 1400px;
+                margin: 0 auto;
+                display: flex;
+                align-items: center;
+                gap: 40px;
+                height: 60px;
+            }
+            nav .logo {
+                font-size: 20px;
+                font-weight: bold;
+                color: #fff;
+                text-decoration: none;
+            }
+            nav .logo span { color: #3b82f6; }
+            nav .nav-links { display: flex; gap: 30px; }
+            nav .nav-links a {
+                color: #888;
+                text-decoration: none;
+                font-size: 14px;
+                transition: color 0.2s;
+            }
+            nav .nav-links a:hover { color: #fff; }
+            nav .nav-links a.active { color: #3b82f6; }
+            .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+            h1 { color: #fff; margin-bottom: 10px; }
+            .subtitle { color: #888; margin-bottom: 30px; }
+
+            /* Stats bar */
+            .stats-bar {
+                display: flex;
+                gap: 20px;
+                margin-bottom: 30px;
+                flex-wrap: wrap;
+            }
+            .stat-card {
+                background: #1a1a1a;
+                border-radius: 12px;
+                padding: 20px 30px;
+                border: 1px solid #333;
+                min-width: 140px;
+            }
+            .stat-value {
+                font-size: 32px;
+                font-weight: bold;
+                color: #fff;
+            }
+            .stat-label { color: #888; font-size: 14px; margin-top: 5px; }
+            .stat-card.pending .stat-value { color: #f59e0b; }
+            .stat-card.processing .stat-value { color: #3b82f6; }
+            .stat-card.completed .stat-value { color: #22c55e; }
+            .stat-card.failed .stat-value { color: #ef4444; }
+
+            /* Upload section */
+            .upload-section {
+                background: #1a1a1a;
+                border-radius: 12px;
+                padding: 30px;
+                border: 1px solid #333;
+                margin-bottom: 30px;
+            }
+            .upload-section h2 { margin-bottom: 20px; color: #fff; }
+
+            .upload-area {
+                border: 2px dashed #444;
+                border-radius: 12px;
+                padding: 40px;
+                text-align: center;
+                cursor: pointer;
+                transition: all 0.2s;
+                margin-bottom: 20px;
+            }
+            .upload-area:hover, .upload-area.dragover {
+                border-color: #3b82f6;
+                background: rgba(59, 130, 246, 0.1);
+            }
+            .upload-area input { display: none; }
+            .upload-icon { font-size: 48px; margin-bottom: 10px; }
+            .upload-text { color: #888; }
+            .upload-text strong { color: #3b82f6; }
+
+            .upload-options {
+                display: flex;
+                gap: 15px;
+                flex-wrap: wrap;
+                align-items: end;
+            }
+            .form-group { flex: 1; min-width: 200px; }
+            .form-group label { display: block; margin-bottom: 8px; color: #888; font-size: 14px; }
+            .form-group input, .form-group select {
+                width: 100%;
+                padding: 12px;
+                border-radius: 8px;
+                border: 1px solid #333;
+                background: #0a0a0a;
+                color: #fff;
+                font-size: 14px;
+            }
+            .btn {
+                padding: 12px 24px;
+                border-radius: 8px;
+                border: none;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+            .btn-primary { background: #3b82f6; color: white; }
+            .btn-primary:hover { background: #2563eb; }
+            .btn-primary:disabled { background: #555; cursor: not-allowed; }
+
+            /* Jobs table */
+            .jobs-section {
+                background: #1a1a1a;
+                border-radius: 12px;
+                padding: 30px;
+                border: 1px solid #333;
+            }
+            .jobs-section h2 { margin-bottom: 20px; color: #fff; }
+
+            .jobs-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            .jobs-table th, .jobs-table td {
+                padding: 15px;
+                text-align: left;
+                border-bottom: 1px solid #333;
+            }
+            .jobs-table th { color: #888; font-weight: 500; }
+            .jobs-table tr:hover { background: rgba(255,255,255,0.02); }
+
+            .status-badge {
+                padding: 4px 12px;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: 600;
+            }
+            .status-pending { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+            .status-processing { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+            .status-completed { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+            .status-failed { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+
+            .progress-bar {
+                width: 100px;
+                height: 6px;
+                background: #333;
+                border-radius: 3px;
+                overflow: hidden;
+            }
+            .progress-fill {
+                height: 100%;
+                background: #3b82f6;
+                transition: width 0.3s;
+            }
+
+            .btn-small {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+            .btn-danger { background: #ef4444; color: white; }
+            .btn-danger:hover { background: #dc2626; }
+
+            .empty-state {
+                text-align: center;
+                padding: 60px 20px;
+                color: #666;
+            }
+            .empty-state .icon { font-size: 48px; margin-bottom: 15px; }
+
+            /* Upload progress list */
+            .upload-progress-list {
+                margin-top: 20px;
+            }
+            .upload-item {
+                display: flex;
+                align-items: center;
+                gap: 15px;
+                padding: 10px;
+                background: #0a0a0a;
+                border-radius: 8px;
+                margin-bottom: 10px;
+            }
+            .upload-item .filename { flex: 1; }
+            .upload-item .size { color: #888; font-size: 12px; }
+        </style>
+    </head>
+    <body>
+        <nav>
+            <div class="nav-inner">
+                <a href="/" class="logo">CCTV<span>Analytics</span></a>
+                <div class="nav-links">
+                    <a href="/">Home</a>
+                    <a href="/process">Process Video</a>
+                    <a href="/uploads" class="active">Batch Upload</a>
+                    <a href="/map">Map</a>
+                    <a href="/docs">API Docs</a>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container">
+            <h1>📤 Upload Manager</h1>
+            <p class="subtitle">Batch upload and process videos</p>
+
+            <!-- Stats Bar -->
+            <div class="stats-bar">
+                <div class="stat-card pending">
+                    <div class="stat-value" id="stat-pending">-</div>
+                    <div class="stat-label">Pending</div>
+                </div>
+                <div class="stat-card processing">
+                    <div class="stat-value" id="stat-processing">-</div>
+                    <div class="stat-label">Processing</div>
+                </div>
+                <div class="stat-card completed">
+                    <div class="stat-value" id="stat-completed">-</div>
+                    <div class="stat-label">Completed</div>
+                </div>
+                <div class="stat-card failed">
+                    <div class="stat-value" id="stat-failed">-</div>
+                    <div class="stat-label">Failed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-visitors">-</div>
+                    <div class="stat-label">Total Visitors Detected</div>
+                </div>
+            </div>
+
+            <!-- Upload Section -->
+            <div class="upload-section">
+                <h2>Upload Videos</h2>
+                <div class="upload-area" id="upload-area">
+                    <input type="file" id="file-input" multiple accept="video/*">
+                    <div class="upload-icon">📁</div>
+                    <div class="upload-text">
+                        <strong>Click to upload</strong> or drag and drop<br>
+                        Multiple video files supported (MP4, MOV, AVI)
+                    </div>
+                </div>
+
+                <div class="upload-options">
+                    <div class="form-group">
+                        <label>Venue ID</label>
+                        <input type="text" id="venue-id" value="demo_venue" placeholder="Enter venue ID">
+                    </div>
+                    <div class="form-group">
+                        <label>Priority</label>
+                        <select id="priority">
+                            <option value="0">Normal</option>
+                            <option value="5">High</option>
+                            <option value="10">Urgent</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" id="upload-btn" disabled>Upload Selected Files</button>
+                </div>
+
+                <div class="upload-progress-list" id="upload-progress"></div>
+            </div>
+
+            <!-- Jobs Table -->
+            <div class="jobs-section">
+                <h2>Processing Queue</h2>
+                <table class="jobs-table">
+                    <thead>
+                        <tr>
+                            <th>Video</th>
+                            <th>Venue</th>
+                            <th>Status</th>
+                            <th>Progress</th>
+                            <th>Visitors</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jobs-tbody">
+                        <tr>
+                            <td colspan="7">
+                                <div class="empty-state">
+                                    <div class="icon">📭</div>
+                                    <div>No jobs yet. Upload some videos to get started!</div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <script>
+            let selectedFiles = [];
+
+            // File input handling
+            const uploadArea = document.getElementById('upload-area');
+            const fileInput = document.getElementById('file-input');
+            const uploadBtn = document.getElementById('upload-btn');
+            const uploadProgress = document.getElementById('upload-progress');
+
+            uploadArea.addEventListener('click', () => fileInput.click());
+
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                handleFiles(e.dataTransfer.files);
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                handleFiles(e.target.files);
+            });
+
+            function handleFiles(files) {
+                selectedFiles = Array.from(files).filter(f => f.type.startsWith('video/'));
+                updateFileList();
+            }
+
+            function updateFileList() {
+                if (selectedFiles.length === 0) {
+                    uploadProgress.innerHTML = '';
+                    uploadBtn.disabled = true;
+                    return;
+                }
+
+                uploadBtn.disabled = false;
+                uploadProgress.innerHTML = selectedFiles.map((f, i) => `
+                    <div class="upload-item">
+                        <span>📹</span>
+                        <span class="filename">${f.name}</span>
+                        <span class="size">${(f.size / 1024 / 1024).toFixed(1)} MB</span>
+                    </div>
+                `).join('');
+            }
+
+            uploadBtn.addEventListener('click', async () => {
+                if (selectedFiles.length === 0) return;
+
+                uploadBtn.disabled = true;
+                uploadBtn.textContent = 'Uploading...';
+
+                const formData = new FormData();
+                selectedFiles.forEach(f => formData.append('files', f));
+                formData.append('venue_id', document.getElementById('venue-id').value);
+                formData.append('priority', document.getElementById('priority').value);
+
+                try {
+                    const resp = await fetch('/api/batch/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await resp.json();
+
+                    if (resp.ok) {
+                        alert(`Queued ${data.jobs.length} videos for processing!`);
+                        selectedFiles = [];
+                        updateFileList();
+                        fileInput.value = '';
+                        loadJobs();
+                        loadStats();
+                    } else {
+                        alert('Upload failed: ' + (data.detail || 'Unknown error'));
+                    }
+                } catch (e) {
+                    alert('Upload failed: ' + e.message);
+                } finally {
+                    uploadBtn.disabled = false;
+                    uploadBtn.textContent = 'Upload Selected Files';
+                }
+            });
+
+            // Load stats
+            async function loadStats() {
+                try {
+                    const resp = await fetch('/api/batch/stats');
+                    const data = await resp.json();
+
+                    document.getElementById('stat-pending').textContent = data.queue.pending;
+                    document.getElementById('stat-processing').textContent = data.queue.processing;
+                    document.getElementById('stat-completed').textContent = data.queue.completed;
+                    document.getElementById('stat-failed').textContent = data.queue.failed;
+                    document.getElementById('stat-visitors').textContent = data.total_visitors_detected.toLocaleString();
+                } catch (e) {
+                    console.error('Failed to load stats:', e);
+                }
+            }
+
+            // Load jobs
+            async function loadJobs() {
+                try {
+                    const resp = await fetch('/api/batch/jobs?limit=50');
+                    const data = await resp.json();
+
+                    const tbody = document.getElementById('jobs-tbody');
+
+                    if (data.jobs.length === 0) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="7">
+                                    <div class="empty-state">
+                                        <div class="icon">📭</div>
+                                        <div>No jobs yet. Upload some videos to get started!</div>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                        return;
+                    }
+
+                    tbody.innerHTML = data.jobs.map(job => `
+                        <tr data-job-id="${job.id}">
+                            <td title="${job.video_name}">${truncate(job.video_name, 30)}</td>
+                            <td><a href="/analytics-dashboard/${job.venue_id}">${job.venue_id}</a></td>
+                            <td><span class="status-badge status-${job.status}">${job.status}</span></td>
+                            <td>
+                                ${job.status === 'processing' ? `
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" style="width: ${job.progress}%"></div>
+                                    </div>
+                                ` : job.status === 'completed' ? '100%' : '-'}
+                            </td>
+                            <td>${job.visitors_detected || '-'}</td>
+                            <td>${formatTime(job.created_at)}</td>
+                            <td>
+                                ${job.status === 'pending' ? `
+                                    <button class="btn btn-small btn-danger" onclick="cancelJob('${job.id}')">Cancel</button>
+                                ` : job.status === 'failed' ? `
+                                    <span title="${job.error_message || 'Unknown error'}">⚠️</span>
+                                ` : ''}
+                            </td>
+                        </tr>
+                    `).join('');
+                } catch (e) {
+                    console.error('Failed to load jobs:', e);
+                }
+            }
+
+            function truncate(str, len) {
+                if (!str) return '-';
+                return str.length > len ? str.slice(0, len) + '...' : str;
+            }
+
+            function formatTime(iso) {
+                if (!iso) return '-';
+                const d = new Date(iso);
+                return d.toLocaleString();
+            }
+
+            async function cancelJob(jobId) {
+                if (!confirm('Cancel this job?')) return;
+
+                try {
+                    const resp = await fetch(`/api/batch/jobs/${jobId}`, { method: 'DELETE' });
+                    if (resp.ok) {
+                        loadJobs();
+                        loadStats();
+                    } else {
+                        const data = await resp.json();
+                        alert('Failed to cancel: ' + (data.detail || 'Unknown error'));
+                    }
+                } catch (e) {
+                    alert('Failed to cancel: ' + e.message);
+                }
+            }
+
+            // Initial load and auto-refresh
+            loadStats();
+            loadJobs();
+            setInterval(() => {
+                loadStats();
+                loadJobs();
+            }, 3000);  // Refresh every 3 seconds
+        </script>
+    </body>
+    </html>
+    """
+
+
+@router.get("/map", response_class=HTMLResponse)
+async def map_view():
+    """Interactive map showing all venues with analytics."""
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Venue Map - CCTV Analytics</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: #0a0a0a;
+                color: #e0e0e0;
+            }
+            /* Navigation */
+            nav {
+                background: #111;
+                border-bottom: 1px solid #222;
+                padding: 0 20px;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                z-index: 1001;
+            }
+            nav .nav-inner {
+                max-width: 1400px;
+                margin: 0 auto;
+                display: flex;
+                align-items: center;
+                gap: 40px;
+                height: 60px;
+            }
+            nav .logo {
+                font-size: 20px;
+                font-weight: bold;
+                color: #fff;
+                text-decoration: none;
+            }
+            nav .logo span { color: #3b82f6; }
+            nav .nav-links { display: flex; gap: 30px; }
+            nav .nav-links a {
+                color: #888;
+                text-decoration: none;
+                font-size: 14px;
+                transition: color 0.2s;
+            }
+            nav .nav-links a:hover { color: #fff; }
+            nav .nav-links a.active { color: #3b82f6; }
+            #map { width: 100%; height: calc(100vh - 60px); margin-top: 60px; }
+            .legend {
+                position: absolute;
+                bottom: 30px;
+                right: 10px;
+                z-index: 1000;
+                background: rgba(0,0,0,0.8);
+                padding: 15px;
+                border-radius: 8px;
+            }
+            .legend h4 { margin-bottom: 10px; color: #fff; font-size: 14px; }
+            .legend-item {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin: 5px 0;
+                font-size: 12px;
+            }
+            .legend-color {
+                width: 16px;
+                height: 16px;
+                border-radius: 50%;
+            }
+            .venue-popup h3 { margin: 0 0 10px 0; color: #333; }
+            .venue-popup p { margin: 5px 0; color: #666; font-size: 13px; }
+            .venue-popup .stat { font-weight: bold; color: #0066ff; }
+            .venue-popup a {
+                display: inline-block;
+                margin-top: 10px;
+                padding: 8px 16px;
+                background: #0066ff;
+                color: white;
+                text-decoration: none;
+                border-radius: 4px;
+                font-size: 12px;
+            }
+            .stats-panel {
+                position: absolute;
+                top: 80px;
+                left: 10px;
+                z-index: 1000;
+                background: rgba(0,0,0,0.8);
+                padding: 15px;
+                border-radius: 8px;
+                min-width: 200px;
+            }
+            .stats-panel h4 { margin-bottom: 10px; color: #fff; }
+            .stats-panel .stat-row {
+                display: flex;
+                justify-content: space-between;
+                margin: 8px 0;
+                font-size: 13px;
+            }
+            .stats-panel .stat-value { color: #3b82f6; font-weight: bold; }
+        </style>
+    </head>
+    <body>
+        <nav>
+            <div class="nav-inner">
+                <a href="/" class="logo">CCTV<span>Analytics</span></a>
+                <div class="nav-links">
+                    <a href="/">Home</a>
+                    <a href="/process">Process Video</a>
+                    <a href="/uploads">Batch Upload</a>
+                    <a href="/map" class="active">Map</a>
+                    <a href="/docs">API Docs</a>
+                </div>
+            </div>
+        </nav>
+
+        <div id="map"></div>
+
+        <div class="stats-panel" id="stats-panel">
+            <h4>🗺️ Overview</h4>
+            <div class="stat-row">
+                <span>Total Venues</span>
+                <span class="stat-value" id="total-venues">-</span>
+            </div>
+            <div class="stat-row">
+                <span>Total Visitors</span>
+                <span class="stat-value" id="total-visitors">-</span>
+            </div>
+            <div class="stat-row">
+                <span>Countries</span>
+                <span class="stat-value" id="total-countries">-</span>
+            </div>
+        </div>
+
+        <div class="legend">
+            <h4>Traffic Level</h4>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #22c55e;"></div>
+                <span>High (50+ visitors)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #eab308;"></div>
+                <span>Medium (10-50)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #3b82f6;"></div>
+                <span>Low (< 10)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #6b7280;"></div>
+                <span>No data</span>
+            </div>
+        </div>
+
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script>
+            // Initialize map centered on Africa with better styling
+            const map = L.map('map', {
+                zoomControl: false  // We'll add custom position
+            }).setView([-1.2921, 20.0], 3);
+
+            // Add zoom control to bottom right
+            L.control.zoom({ position: 'bottomleft' }).addTo(map);
+
+            // Use Stadia Alidade Smooth Dark (free, beautiful)
+            L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', {
+                maxZoom: 20,
+                attribution: '&copy; Stadia Maps, &copy; OpenMapTiles, &copy; OpenStreetMap'
+            }).addTo(map);
+
+            // Fetch venues and analytics
+            async function loadVenues() {
+                try {
+                    const response = await fetch('/api/map/venues');
+                    const data = await response.json();
+
+                    // Update stats
+                    document.getElementById('total-venues').textContent = data.venues.length;
+                    document.getElementById('total-visitors').textContent =
+                        data.venues.reduce((sum, v) => sum + (v.visitors || 0), 0).toLocaleString();
+
+                    const countries = new Set(data.venues.map(v => v.country).filter(c => c));
+                    document.getElementById('total-countries').textContent = countries.size || '-';
+
+                    // Add markers with pulse animation for high traffic
+                    data.venues.forEach(venue => {
+                        if (venue.latitude && venue.longitude) {
+                            const color = getMarkerColor(venue.visitors);
+                            const size = Math.max(10, Math.min(25, (venue.visitors || 0) / 3 + 10));
+
+                            // Create custom icon with glow effect
+                            const marker = L.circleMarker([venue.latitude, venue.longitude], {
+                                radius: size,
+                                fillColor: color,
+                                color: color,
+                                weight: 3,
+                                opacity: 0.3,
+                                fillOpacity: 0.9
+                            }).addTo(map);
+
+                            // Add inner dot
+                            L.circleMarker([venue.latitude, venue.longitude], {
+                                radius: size * 0.4,
+                                fillColor: '#fff',
+                                color: '#fff',
+                                weight: 0,
+                                fillOpacity: 0.9
+                            }).addTo(map);
+
+                            const venueTypeIcon = {
+                                'bar': '🍺', 'restaurant': '🍽️', 'cafe': '☕',
+                                'retail': '🛍️', 'nightclub': '🎵', 'hotel': '🏨',
+                                'mall': '🏬', 'other': '📍'
+                            }[venue.venue_type] || '📍';
+
+                            marker.bindPopup(`
+                                <div class="venue-popup">
+                                    <h3>${venueTypeIcon} ${venue.name || venue.id}</h3>
+                                    <p><strong>Type:</strong> ${venue.venue_type || 'Unknown'}</p>
+                                    <p><strong>Location:</strong> ${[venue.city, venue.country].filter(x=>x).join(', ') || 'Not set'}</p>
+                                    <hr style="border: none; border-top: 1px solid #eee; margin: 10px 0;">
+                                    <p><strong>Total Visitors:</strong> <span class="stat">${(venue.visitors || 0).toLocaleString()}</span></p>
+                                    <p><strong>Zone ID:</strong> <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:11px;">${venue.h3_zone || 'N/A'}</code></p>
+                                    <a href="/analytics-dashboard/${venue.id}">View Full Analytics →</a>
+                                </div>
+                            `, { maxWidth: 300 });
+                        }
+                    });
+
+                    // Fit bounds if we have venues
+                    const venuesWithLocation = data.venues.filter(v => v.latitude && v.longitude);
+                    if (venuesWithLocation.length > 0) {
+                        const bounds = L.latLngBounds(
+                            venuesWithLocation.map(v => [v.latitude, v.longitude])
+                        );
+                        map.fitBounds(bounds, { padding: [50, 50] });
+                    }
+
+                } catch (e) {
+                    console.error('Failed to load venues:', e);
+                }
+            }
+
+            function getMarkerColor(visitors) {
+                if (!visitors) return '#6b7280';  // Gray - no data
+                if (visitors >= 50) return '#22c55e';  // Green - high
+                if (visitors >= 10) return '#eab308';  // Yellow - medium
+                return '#3b82f6';  // Blue - low
+            }
+
+            loadVenues();
+        </script>
+    </body>
+    </html>
+    """
+
+

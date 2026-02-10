@@ -85,7 +85,7 @@ class TestVisitorMatcher:
         matcher = VisitorMatcher("test_venue")
 
         assert matcher.venue_id == "test_venue"
-        assert matcher.threshold == 0.65
+        assert matcher.threshold == 0.68
         assert matcher.visitor_count == 0
 
     def test_matcher_custom_threshold(self):

@@ -1,0 +1,23 @@
+# BoT-SORT tracker configuration for CCTV Analytics
+# See: https://docs.ultralytics.com/modes/track/
+
+tracker_type: botsort
+
+# Tracking parameters
+track_high_thresh: 0.5       # Detection confidence threshold for first association
+track_low_thresh: 0.1        # Threshold for second association (recover lost tracks)
+new_track_thresh: 0.6        # Threshold for initializing new tracks
+track_buffer: 150            # Frames to keep lost tracks (5-10 sec at 15-30fps)
+match_thresh: 0.8            # IOU matching threshold
+
+# GMC (Global Motion Compensation) - handles camera motion
+gmc_method: sparseOptFlow    # Options: sparseOptFlow, orb, ecc, none
+
+# Proximity threshold
+proximity_thresh: 0.5
+
+# Appearance threshold (re-id)
+appearance_thresh: 0.25
+
+# Re-ID with appearance features
+with_reid: true

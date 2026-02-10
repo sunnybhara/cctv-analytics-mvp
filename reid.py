@@ -4,10 +4,10 @@ Return Visitor Re-Identification Module
 Uses face embeddings to track visitors across sessions.
 
 How it works:
-1. Extract face from person crop using MTCNN
-2. Generate 512-dim embedding using FaceNet (InceptionResnetV1)
+1. Detect face in person crop using SCRFD (via InsightFace buffalo_l)
+2. Generate 512-dim embedding using ArcFace (via InsightFace buffalo_l)
 3. Compare against stored embeddings using cosine similarity
-4. If similarity > threshold (0.7), it's a return visitor
+4. If similarity > threshold (0.68), it's a return visitor
 5. Store new embeddings for new visitors
 """
 
@@ -17,60 +17,26 @@ from datetime import datetime
 import hashlib
 import pickle
 
-# Lazy-loaded models
-_mtcnn = None
-_facenet = None
-_device = None
-
-def _get_device():
-    """Get the best available device."""
-    global _device
-    if _device is None:
-        import torch
-        if torch.cuda.is_available():
-            _device = torch.device('cuda')
-        else:
-            # Force CPU for FaceNet - MPS has issues with adaptive pooling
-            # See: https://github.com/pytorch/pytorch/issues/96056
-            _device = torch.device('cpu')
-    return _device
+# Lazy-loaded InsightFace app
+_insightface_app = None
 
 
-def _load_mtcnn():
-    """Load MTCNN face detector."""
-    global _mtcnn
-    if _mtcnn is None:
+def _load_insightface():
+    """Load InsightFace app (SCRFD detection + ArcFace embedding)."""
+    global _insightface_app
+    if _insightface_app is None:
         try:
-            from facenet_pytorch import MTCNN
-            _mtcnn = MTCNN(
-                image_size=160,
-                margin=20,
-                min_face_size=40,
-                thresholds=[0.6, 0.7, 0.7],
-                factor=0.709,
-                post_process=True,
-                device=_get_device(),
-                keep_all=False  # Only return best face
+            from insightface.app import FaceAnalysis
+            _insightface_app = FaceAnalysis(
+                name='buffalo_l',
+                providers=['CPUExecutionProvider']
             )
-            print("MTCNN face detector loaded")
+            _insightface_app.prepare(ctx_id=-1, det_size=(640, 640))
+            print("InsightFace loaded (SCRFD + ArcFace via buffalo_l)")
         except Exception as e:
-            print(f"Failed to load MTCNN: {e}")
-            _mtcnn = None
-    return _mtcnn
-
-
-def _load_facenet():
-    """Load FaceNet embedding model."""
-    global _facenet
-    if _facenet is None:
-        try:
-            from facenet_pytorch import InceptionResnetV1
-            _facenet = InceptionResnetV1(pretrained='vggface2').eval().to(_get_device())
-            print("FaceNet embedding model loaded")
-        except Exception as e:
-            print(f"Failed to load FaceNet: {e}")
-            _facenet = None
-    return _facenet
+            print(f"Failed to load InsightFace: {e}")
+            _insightface_app = None
+    return _insightface_app
 
 
 def extract_face_embedding(person_crop: np.ndarray) -> Tuple[Optional[np.ndarray], float]:
@@ -82,44 +48,30 @@ def extract_face_embedding(person_crop: np.ndarray) -> Tuple[Optional[np.ndarray
 
     Returns:
         Tuple of (embedding, quality_score) or (None, 0) if no face found
-        - embedding: 512-dimensional numpy array
-        - quality_score: 0-1 confidence in the face detection
+        - embedding: 512-dimensional numpy array (ArcFace, L2-normalized)
+        - quality_score: 0-1 detection confidence from SCRFD
     """
-    import torch
-    from PIL import Image
-    import cv2
-
-    mtcnn = _load_mtcnn()
-    facenet = _load_facenet()
-
-    if mtcnn is None or facenet is None:
+    app = _load_insightface()
+    if app is None:
         return None, 0.0
 
     try:
-        # Convert BGR to RGB
-        rgb = cv2.cvtColor(person_crop, cv2.COLOR_BGR2RGB)
-        pil_image = Image.fromarray(rgb)
+        # InsightFace expects BGR numpy array directly
+        faces = app.get(person_crop)
 
-        # Detect face and get aligned face tensor
-        face_tensor, prob = mtcnn(pil_image, return_prob=True)
-
-        if face_tensor is None or prob < 0.9:
+        if not faces:
             return None, 0.0
 
-        # Add batch dimension and move to device
-        face_tensor = face_tensor.unsqueeze(0).to(_get_device())
+        # Pick the face with the highest detection score
+        best_face = max(faces, key=lambda f: f.det_score)
 
-        # Extract embedding
-        with torch.no_grad():
-            embedding = facenet(face_tensor)
+        det_score = float(best_face.det_score)
+        if det_score < 0.5:
+            return None, 0.0
 
-        # Convert to numpy
-        embedding_np = embedding.cpu().numpy().flatten()
+        embedding = best_face.normed_embedding.astype(np.float32)
 
-        # Normalize
-        embedding_np = embedding_np / np.linalg.norm(embedding_np)
-
-        return embedding_np, float(prob)
+        return embedding, det_score
 
     except Exception as e:
         print(f"Error extracting embedding: {e}")
@@ -154,13 +106,13 @@ class VisitorMatcher:
     Handles caching and batch operations for efficiency.
     """
 
-    def __init__(self, venue_id: str, similarity_threshold: float = 0.65):
+    def __init__(self, venue_id: str, similarity_threshold: float = 0.68):
         """
         Initialize matcher for a venue.
 
         Args:
             venue_id: The venue to match against
-            similarity_threshold: Minimum similarity to consider a match (0.65 = 65%)
+            similarity_threshold: Minimum similarity to consider a match (0.68 = 68%)
         """
         self.venue_id = venue_id
         self.threshold = similarity_threshold
@@ -297,17 +249,12 @@ def test_reid():
     print("Testing Re-ID module...")
 
     # Test model loading
-    print("\n1. Loading MTCNN...")
-    mtcnn = _load_mtcnn()
-    print(f"   MTCNN loaded: {mtcnn is not None}")
-
-    print("\n2. Loading FaceNet...")
-    facenet = _load_facenet()
-    print(f"   FaceNet loaded: {facenet is not None}")
+    print("\n1. Loading InsightFace (SCRFD + ArcFace)...")
+    app = _load_insightface()
+    print(f"   InsightFace loaded: {app is not None}")
 
     # Test with dummy image
-    print("\n3. Testing embedding extraction...")
-    import cv2
+    print("\n2. Testing embedding extraction...")
     dummy = np.zeros((200, 100, 3), dtype=np.uint8)
     dummy[:] = (128, 128, 128)
 
@@ -315,9 +262,30 @@ def test_reid():
     print(f"   Embedding from dummy (no face): {embedding is None} (expected: True)")
 
     # Test matcher
-    print("\n4. Testing VisitorMatcher...")
-    matcher = VisitorMatcher("test_venue", similarity_threshold=0.65)
+    print("\n3. Testing VisitorMatcher...")
+    matcher = VisitorMatcher("test_venue", similarity_threshold=0.68)
     print(f"   Matcher created, threshold: {matcher.threshold}")
+    print(f"   Embedding model: arcface")
+
+    # Test cosine similarity with known vectors
+    print("\n4. Testing cosine similarity...")
+    a = np.random.randn(512).astype(np.float32)
+    a = a / np.linalg.norm(a)
+    b = a.copy()
+    sim = cosine_similarity(a, b)
+    print(f"   Identical vectors similarity: {sim:.4f} (expected: 1.0)")
+
+    c = np.random.randn(512).astype(np.float32)
+    c = c / np.linalg.norm(c)
+    sim2 = cosine_similarity(a, c)
+    print(f"   Random vectors similarity: {sim2:.4f} (expected: ~0.0)")
+
+    # Test serialize/deserialize round-trip
+    print("\n5. Testing embedding serialization...")
+    data = serialize_embedding(a)
+    recovered = deserialize_embedding(data)
+    assert np.allclose(a, recovered), "Round-trip serialization failed"
+    print(f"   Serialize/deserialize round-trip: OK ({len(data)} bytes)")
 
     print("\nRe-ID module ready!")
     print("Note: Real testing requires images with faces")

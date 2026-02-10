@@ -2,6 +2,7 @@
 Pytest configuration and fixtures for CCTV Analytics tests.
 """
 import pytest
+import pytest_asyncio
 import asyncio
 import tempfile
 import os
@@ -23,7 +24,7 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session")
 async def setup_database():
     """Create test database and tables."""
     engine = sqlalchemy.create_engine(
@@ -39,7 +40,7 @@ async def setup_database():
         os.remove("test_analytics.db")
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def client(setup_database):
     """Async HTTP client for API testing."""
     transport = ASGITransport(app=app)
@@ -47,7 +48,7 @@ async def client(setup_database):
         yield ac
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_venue(client):
     """Create a test venue and return its details."""
     response = await client.post("/venues", json={
@@ -61,7 +62,7 @@ async def test_venue(client):
     # Cleanup handled by database teardown
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_venue_with_data(client, test_venue, setup_database):
     """Create a test venue with sample event data."""
     venue_id = "test_venue"
