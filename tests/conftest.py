@@ -9,8 +9,9 @@ import os
 from datetime import datetime, timedelta
 from httpx import AsyncClient, ASGITransport
 
-# Set test database before importing main
+# Set test database and disable auth before importing main
 os.environ["DATABASE_URL"] = "sqlite:///./test_analytics.db"
+os.environ["AUTH_ENABLED"] = "false"
 
 from main import app, database, metadata, events, venues
 import sqlalchemy

@@ -7,7 +7,8 @@ Demographics, zones, trends, executive summary, heatmap, and export endpoints.
 from datetime import datetime, timedelta
 
 import sqlalchemy
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from app.auth import require_api_key
 from fastapi.responses import HTMLResponse
 
 from app.database import database, events
@@ -18,7 +19,8 @@ router = APIRouter()
 @router.get("/analytics/{venue_id}/demographics")
 async def get_demographics_analytics(
     venue_id: str,
-    days: int = 7
+    days: int = 7,
+    _api_key: str = Depends(require_api_key)
 ):
     """
     Get demographic breakdown (Nielsen-style).
@@ -100,7 +102,8 @@ async def get_demographics_analytics(
 @router.get("/analytics/{venue_id}/zones")
 async def get_zone_analytics(
     venue_id: str,
-    days: int = 7
+    days: int = 7,
+    _api_key: str = Depends(require_api_key)
 ):
     """
     Get zone performance analytics (Nielsen-style).
@@ -159,7 +162,8 @@ async def get_zone_analytics(
 @router.get("/analytics/{venue_id}/trends")
 async def get_trend_analytics(
     venue_id: str,
-    weeks: int = 8
+    weeks: int = 8,
+    _api_key: str = Depends(require_api_key)
 ):
     """
     Get weekly trends (Nielsen-style).
@@ -234,7 +238,8 @@ async def get_trend_analytics(
 @router.get("/analytics/{venue_id}/summary")
 async def get_executive_summary(
     venue_id: str,
-    days: int = 7
+    days: int = 7,
+    _api_key: str = Depends(require_api_key)
 ):
     """
     Executive summary (Nielsen-style).
@@ -374,7 +379,8 @@ async def get_executive_summary(
 @router.get("/analytics/{venue_id}/heatmap")
 async def get_hourly_heatmap(
     venue_id: str,
-    weeks: int = 4
+    weeks: int = 4,
+    _api_key: str = Depends(require_api_key)
 ):
     """
     Get hourly heatmap data (Nielsen-style).
@@ -431,7 +437,8 @@ async def get_hourly_heatmap(
 async def export_analytics(
     venue_id: str,
     days: int = 7,
-    format: str = "json"
+    format: str = "json",
+    _api_key: str = Depends(require_api_key)
 ):
     """
     Export analytics data for reporting.

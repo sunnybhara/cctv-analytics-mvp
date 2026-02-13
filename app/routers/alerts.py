@@ -8,7 +8,8 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict
 
 import sqlalchemy
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from app.auth import require_api_key
 
 from app.database import database, events, alerts
 
@@ -102,7 +103,8 @@ async def list_alerts(
     venue_id: Optional[str] = None,
     severity: Optional[str] = None,
     acknowledged: Optional[bool] = None,
-    limit: int = 50
+    limit: int = 50,
+    _api_key: str = Depends(require_api_key)
 ):
     """List alerts, optionally filtered."""
     query = sqlalchemy.select(alerts).order_by(alerts.c.created_at.desc()).limit(limit)
@@ -135,7 +137,7 @@ async def list_alerts(
 
 
 @router.post("/api/alerts/{alert_id}/acknowledge")
-async def acknowledge_alert(alert_id: int):
+async def acknowledge_alert(alert_id: int, _api_key: str = Depends(require_api_key)):
     """Mark an alert as acknowledged."""
     query = alerts.update().where(alerts.c.id == alert_id).values(
         acknowledged=True,
@@ -150,7 +152,7 @@ async def acknowledge_alert(alert_id: int):
 
 
 @router.post("/api/alerts/check/{venue_id}")
-async def trigger_anomaly_check(venue_id: str):
+async def trigger_anomaly_check(venue_id: str, _api_key: str = Depends(require_api_key)):
     """Manually trigger anomaly detection for a venue."""
     detected = await check_anomalies(venue_id)
     return {

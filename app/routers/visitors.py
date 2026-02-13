@@ -7,7 +7,8 @@ Known visitors, loyalty scoring, visit history, and returning visitor analytics.
 from datetime import datetime, timedelta
 
 import sqlalchemy
-from fastapi import APIRouter, HTTPException
+from fastapi import Depends, APIRouter, HTTPException
+from app.auth import require_api_key
 
 from app.database import database, events, visitor_embeddings
 
@@ -41,7 +42,8 @@ def calculate_loyalty_score(visitor_row) -> str:
 async def get_known_visitors(
     venue_id: str,
     limit: int = 100,
-    sort_by: str = "last_seen"  # last_seen, first_seen, visit_count
+    sort_by: str = "last_seen",  # last_seen, first_seen, visit_count
+    _api_key: str = Depends(require_api_key)
 ):
     """
     Get all known visitors for a venue.
@@ -92,7 +94,7 @@ async def get_known_visitors(
 
 
 @router.get("/api/visitors/{venue_id}/stats")
-async def get_visitor_loyalty_stats(venue_id: str):
+async def get_visitor_loyalty_stats(venue_id: str, _api_key: str = Depends(require_api_key)):
     """
     Get loyalty statistics for a venue.
     Shows distribution of visitor loyalty tiers.
@@ -138,7 +140,7 @@ async def get_visitor_loyalty_stats(venue_id: str):
 
 
 @router.get("/api/visitors/{venue_id}/history/{visitor_id}")
-async def get_visitor_history(venue_id: str, visitor_id: str):
+async def get_visitor_history(venue_id: str, visitor_id: str, _api_key: str = Depends(require_api_key)):
     """
     Get visit history for a specific visitor.
     Shows all sessions and events for this person.
@@ -210,7 +212,8 @@ async def get_visitor_history(venue_id: str, visitor_id: str):
 @router.get("/api/visitors/{venue_id}/returning")
 async def get_returning_visitor_analytics(
     venue_id: str,
-    days: int = 30
+    days: int = 30,
+    _api_key: str = Depends(require_api_key)
 ):
     """
     Get analytics specifically about returning visitors.

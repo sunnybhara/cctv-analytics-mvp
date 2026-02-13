@@ -25,6 +25,10 @@ transformers>=4.36.0
 opencv-python>=4.9.0
 yt-dlp>=2024.1.0
 
+# Security & Middleware
+cachetools>=5.3.0
+slowapi>=0.1.9
+
 # Testing
 pytest>=8.0.0
 pytest-asyncio>=0.23.0

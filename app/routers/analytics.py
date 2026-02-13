@@ -9,7 +9,8 @@ from typing import Optional
 
 import sqlalchemy
 from sqlalchemy import func
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
+from app.auth import require_api_key
 
 from app.database import database, events
 from app.config import DATABASE_URL
@@ -21,7 +22,8 @@ router = APIRouter()
 @router.get("/analytics/{venue_id}")
 async def get_analytics(
     venue_id: str,
-    days: int = Query(default=7, ge=1, le=90)
+    days: int = Query(default=7, ge=1, le=90),
+    _api_key: str = Depends(require_api_key)
 ) -> StatsResponse:
     """Get analytics for a venue."""
 
@@ -170,7 +172,8 @@ async def get_analytics(
 @router.get("/analytics/{venue_id}/hourly")
 async def get_hourly_analytics(
     venue_id: str,
-    date: Optional[str] = None
+    date: Optional[str] = None,
+    _api_key: str = Depends(require_api_key)
 ):
     """Get hourly breakdown for a specific date."""
 
@@ -212,7 +215,8 @@ async def get_hourly_analytics(
 @router.get("/stats/{venue_id}/hourly")
 async def get_hourly_stats(
     venue_id: str,
-    date: Optional[str] = None
+    date: Optional[str] = None,
+    _api_key: str = Depends(require_api_key)
 ):
     """Get hourly breakdown (legacy endpoint)."""
     return await get_hourly_analytics(venue_id, date)

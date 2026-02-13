@@ -12,7 +12,8 @@ import secrets
 from urllib.parse import urlparse
 
 import sqlalchemy
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import Depends, APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks
+from app.auth import require_api_key
 
 from app.config import DATABASE_URL, ALLOWED_VIDEO_DOMAINS
 from app.database import database, venues
@@ -26,7 +27,7 @@ router = APIRouter()
 
 
 @router.post("/process/youtube")
-async def process_youtube(data: dict, background_tasks: BackgroundTasks):
+async def process_youtube(data: dict, background_tasks: BackgroundTasks, _api_key: str = Depends(require_api_key)):
     """Process a YouTube video with optional venue location."""
     url = data.get("url")
     venue_id = data.get("venue_id", "demo_venue")
@@ -141,7 +142,8 @@ async def process_youtube(data: dict, background_tasks: BackgroundTasks):
 @router.post("/process/upload")
 async def process_upload(
     file: UploadFile = File(...),
-    venue_id: str = Form(default="demo_venue")
+    venue_id: str = Form(default="demo_venue"),
+    _api_key: str = Depends(require_api_key)
 ):
     """Process an uploaded video file."""
     job_id = str(uuid.uuid4())[:8]
@@ -180,7 +182,7 @@ async def process_upload(
 
 
 @router.get("/process/status/{job_id}")
-async def get_process_status(job_id: str):
+async def get_process_status(job_id: str, _api_key: str = Depends(require_api_key)):
     """Get the status of a processing job."""
     if job_id not in processing_jobs:
         raise HTTPException(status_code=404, detail="Job not found")

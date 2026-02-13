@@ -13,7 +13,8 @@ from urllib.parse import urlparse
 
 import sqlalchemy
 from sqlalchemy import func
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import Depends, APIRouter, HTTPException, UploadFile, File, Form
+from app.auth import require_api_key
 
 from app.config import ALLOWED_VIDEO_DOMAINS
 from app.database import database, jobs
@@ -28,7 +29,8 @@ router = APIRouter()
 async def batch_upload(
     files: List[UploadFile] = File(...),
     venue_id: str = Form(default="demo_venue"),
-    priority: int = Form(default=0)
+    priority: int = Form(default=0),
+    _api_key: str = Depends(require_api_key)
 ):
     """
     Upload multiple videos for batch processing.
@@ -76,7 +78,8 @@ async def batch_upload(
 async def batch_url(
     urls: List[str],
     venue_id: str = "demo_venue",
-    priority: int = 0
+    priority: int = 0,
+    _api_key: str = Depends(require_api_key)
 ):
     """
     Queue multiple YouTube URLs for batch processing.
@@ -156,7 +159,8 @@ async def batch_url(
 async def list_jobs(
     venue_id: Optional[str] = None,
     status: Optional[str] = None,
-    limit: int = 50
+    limit: int = 50,
+    _api_key: str = Depends(require_api_key)
 ):
     """
     List all jobs, optionally filtered by venue or status.
@@ -189,7 +193,7 @@ async def list_jobs(
     }
 
 @router.get("/api/batch/jobs/{job_id}")
-async def get_job(job_id: str):
+async def get_job(job_id: str, _api_key: str = Depends(require_api_key)):
     """Get details of a specific job."""
     query = sqlalchemy.select(jobs).where(jobs.c.id == job_id)
     row = await database.fetch_one(query)
@@ -217,7 +221,7 @@ async def get_job(job_id: str):
     }
 
 @router.delete("/api/batch/jobs/{job_id}")
-async def cancel_job(job_id: str):
+async def cancel_job(job_id: str, _api_key: str = Depends(require_api_key)):
     """Cancel a pending job."""
     query = sqlalchemy.select(jobs).where(jobs.c.id == job_id)
     row = await database.fetch_one(query)
@@ -242,7 +246,7 @@ async def cancel_job(job_id: str):
     return {"message": "Job cancelled", "job_id": job_id}
 
 @router.get("/api/batch/stats")
-async def batch_stats():
+async def batch_stats(_api_key: str = Depends(require_api_key)):
     """Get queue statistics."""
     from app.state import _queue_processor_running
 

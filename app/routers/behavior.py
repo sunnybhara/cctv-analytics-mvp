@@ -8,7 +8,8 @@ hourly engagement patterns, zone-level behavior, and printable HTML report.
 from datetime import datetime, timedelta
 
 import sqlalchemy
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from app.auth import require_api_key
 from fastapi.responses import HTMLResponse
 
 from app.database import database, events
@@ -17,7 +18,7 @@ router = APIRouter()
 
 
 @router.get("/analytics/{venue_id}/behavior")
-async def get_behavior_analytics(venue_id: str, days: int = 7):
+async def get_behavior_analytics(venue_id: str, days: int = 7, _api_key: str = Depends(require_api_key)):
     """
     Get behavior and engagement analytics for a venue.
     Returns engagement scores, behavior type breakdown, and posture analysis.
@@ -108,7 +109,7 @@ async def get_behavior_analytics(venue_id: str, days: int = 7):
 
 
 @router.get("/analytics/{venue_id}/behavior/hourly")
-async def get_behavior_hourly(venue_id: str, days: int = 7):
+async def get_behavior_hourly(venue_id: str, days: int = 7, _api_key: str = Depends(require_api_key)):
     """
     Get hourly engagement patterns.
     Shows when visitors are most engaged throughout the day.
@@ -163,7 +164,7 @@ async def get_behavior_hourly(venue_id: str, days: int = 7):
 
 
 @router.get("/analytics/{venue_id}/behavior/zones")
-async def get_behavior_by_zone(venue_id: str, days: int = 7):
+async def get_behavior_by_zone(venue_id: str, days: int = 7, _api_key: str = Depends(require_api_key)):
     """
     Get engagement metrics by zone.
     Shows which areas of the venue have the most engaged visitors.

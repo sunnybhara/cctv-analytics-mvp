@@ -7,7 +7,8 @@ Venue comparison and industry benchmarks.
 from datetime import datetime, timedelta
 
 import sqlalchemy
-from fastapi import APIRouter, HTTPException
+from fastapi import Depends, APIRouter, HTTPException
+from app.auth import require_api_key
 
 from app.database import database, events, venues
 
@@ -15,7 +16,7 @@ router = APIRouter()
 
 
 @router.get("/api/benchmark/venues")
-async def compare_venues(venue_ids: str, days: int = 7):
+async def compare_venues(venue_ids: str, days: int = 7, _api_key: str = Depends(require_api_key)):
     """
     Compare multiple venues side by side.
     Pass venue IDs as comma-separated string: ?venue_ids=venue1,venue2,venue3
@@ -86,7 +87,7 @@ async def compare_venues(venue_ids: str, days: int = 7):
 
 
 @router.get("/api/benchmark/industry")
-async def get_industry_benchmarks(venue_type: str = "bar", days: int = 7):
+async def get_industry_benchmarks(venue_type: str = "bar", days: int = 7, _api_key: str = Depends(require_api_key)):
     """
     Get industry benchmarks based on venue type.
     Calculates averages across all venues of the same type.

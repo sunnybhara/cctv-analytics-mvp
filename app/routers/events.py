@@ -6,7 +6,8 @@ Receive events from edge devices and provide legacy stats endpoint.
 
 from typing import List
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
+from app.auth import require_api_key
 
 from app.database import database, events
 from app.schemas import EventBatch, SingleEvent, StatsResponse
@@ -15,7 +16,7 @@ router = APIRouter()
 
 
 @router.post("/events")
-async def submit_events(batch: EventBatch):
+async def submit_events(batch: EventBatch, _api_key: str = Depends(require_api_key)):
     """
     Receive batch events from edge device.
     This is the main ingestion endpoint.
@@ -42,7 +43,7 @@ async def submit_events(batch: EventBatch):
 
 
 @router.post("/events/batch")
-async def submit_events_batch(event_list: List[SingleEvent]):
+async def submit_events_batch(event_list: List[SingleEvent], _api_key: str = Depends(require_api_key)):
     """
     Receive batch events as a simple array.
     Alternative format for edge devices.
@@ -68,7 +69,8 @@ async def submit_events_batch(event_list: List[SingleEvent]):
 @router.get("/stats/{venue_id}")
 async def get_stats(
     venue_id: str,
-    days: int = Query(default=7, ge=1, le=90)
+    days: int = Query(default=7, ge=1, le=90),
+    _api_key: str = Depends(require_api_key)
 ) -> StatsResponse:
     """Get analytics for a venue (legacy endpoint, use /analytics/{venue_id})."""
     from app.routers.analytics import get_analytics

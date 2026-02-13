@@ -18,5 +18,8 @@ CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost
 # Upload limits
 MAX_UPLOAD_SIZE_MB = int(os.getenv("MAX_UPLOAD_SIZE_MB", "500"))
 
+# Authentication
+AUTH_ENABLED = os.getenv("AUTH_ENABLED", "true").lower() == "true"
+
 # Allowed video URL domains
 ALLOWED_VIDEO_DOMAINS = ["youtube.com", "youtu.be", "www.youtube.com"]
