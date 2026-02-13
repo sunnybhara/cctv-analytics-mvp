@@ -23,23 +23,16 @@ _gender_classifier = None
 
 
 def _get_face_analyzer():
-    """Get or create the shared InsightFace FaceAnalysis singleton."""
+    """Get the shared InsightFace FaceAnalysis singleton from models.py."""
     global _face_analyzer
 
     if _face_analyzer is not None:
         return _face_analyzer
 
     try:
-        from insightface.app import FaceAnalysis
-
-        _face_analyzer = FaceAnalysis(
-            name='buffalo_l',
-            providers=['CPUExecutionProvider']
-        )
-        _face_analyzer.prepare(ctx_id=-1, det_size=(640, 640))
-        print("InsightFace buffalo_l model loaded (face detection + age + gender)")
+        from app.video.models import get_shared_insightface
+        _face_analyzer = get_shared_insightface()
         return _face_analyzer
-
     except Exception as e:
         print(f"Failed to load InsightFace model: {e}")
         _face_analyzer = None
@@ -170,94 +163,6 @@ def detect_faces(person_crop: np.ndarray) -> List[Dict]:
     except Exception as e:
         print(f"InsightFace detection error: {e}")
         return []
-
-
-def classify_age(face_image: Image.Image) -> Tuple[Optional[str], float]:
-    """
-    Classify age from a face image.
-
-    When called after detect_faces(), the age is already known from InsightFace.
-    This function runs a fresh InsightFace pass on the provided PIL image to
-    extract the age, then maps it to a bracket.
-
-    Args:
-        face_image: PIL Image of a face crop
-
-    Returns:
-        Tuple of (age_bracket, confidence)
-    """
-    analyzer = _get_face_analyzer()
-
-    if analyzer is None:
-        return None, 0.0
-
-    try:
-        # Convert PIL -> BGR numpy for InsightFace
-        rgb = np.array(face_image)
-        if rgb.ndim == 2:
-            bgr = cv2.cvtColor(rgb, cv2.COLOR_GRAY2BGR)
-        else:
-            bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-
-        raw_faces = analyzer.get(bgr)
-
-        if not raw_faces:
-            return None, 0.0
-
-        # Use highest-confidence face
-        best = max(raw_faces, key=lambda f: f.det_score)
-        confidence = float(best.det_score)
-        age_bracket = _age_to_bracket(float(best.age))
-
-        return age_bracket, confidence
-
-    except Exception as e:
-        print(f"Age classification error: {e}")
-        return None, 0.0
-
-
-def classify_gender(face_image: Image.Image) -> Tuple[Optional[str], float]:
-    """
-    Classify gender from a face image.
-
-    When called after detect_faces(), the gender is already known from InsightFace.
-    This function runs a fresh InsightFace pass on the provided PIL image to
-    extract the gender.
-
-    Args:
-        face_image: PIL Image of a face crop
-
-    Returns:
-        Tuple of (gender, confidence) - gender is 'M' or 'F'
-    """
-    analyzer = _get_face_analyzer()
-
-    if analyzer is None:
-        return None, 0.0
-
-    try:
-        # Convert PIL -> BGR numpy for InsightFace
-        rgb = np.array(face_image)
-        if rgb.ndim == 2:
-            bgr = cv2.cvtColor(rgb, cv2.COLOR_GRAY2BGR)
-        else:
-            bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-
-        raw_faces = analyzer.get(bgr)
-
-        if not raw_faces:
-            return None, 0.0
-
-        # Use highest-confidence face
-        best = max(raw_faces, key=lambda f: f.det_score)
-        confidence = float(best.det_score)
-        gender = _gender_to_label(int(best.gender))
-
-        return gender, confidence
-
-    except Exception as e:
-        print(f"Gender classification error: {e}")
-        return None, 0.0
 
 
 def estimate_demographics(

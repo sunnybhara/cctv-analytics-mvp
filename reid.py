@@ -22,17 +22,12 @@ _insightface_app = None
 
 
 def _load_insightface():
-    """Load InsightFace app (SCRFD detection + ArcFace embedding)."""
+    """Get the shared InsightFace singleton from models.py."""
     global _insightface_app
     if _insightface_app is None:
         try:
-            from insightface.app import FaceAnalysis
-            _insightface_app = FaceAnalysis(
-                name='buffalo_l',
-                providers=['CPUExecutionProvider']
-            )
-            _insightface_app.prepare(ctx_id=-1, det_size=(640, 640))
-            print("InsightFace loaded (SCRFD + ArcFace via buffalo_l)")
+            from app.video.models import get_shared_insightface
+            _insightface_app = get_shared_insightface()
         except Exception as e:
             print(f"Failed to load InsightFace: {e}")
             _insightface_app = None

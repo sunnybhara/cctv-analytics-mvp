@@ -19,9 +19,6 @@ ultralytics>=8.3.114
 insightface>=0.7.3
 onnxruntime>=1.17.0
 
-# ML - Demographics (MiVOLO v2 age+gender)
-transformers>=4.36.0
-
 # Video
 opencv-python>=4.9.0
 yt-dlp>=2024.1.0

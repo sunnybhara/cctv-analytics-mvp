@@ -14,8 +14,8 @@ from app.state import processing_jobs
 from app.database import events, visitor_embeddings
 from app.config import DATABASE_URL
 from app.video.deps import load_video_deps, cv2, reid_module, behavior_module
-from app.video.models import get_yolo_model
-from app.video.helpers import generate_pseudo_id, get_zone, estimate_demographics_from_crop
+from app.video.models import get_yolo_model, analyze_face_single_pass
+from app.video.helpers import generate_pseudo_id, get_zone
 from app.video.embeddings import load_venue_embeddings_sync, save_visitor_embedding_sync, update_visitor_embedding_sync
 
 # Path to BoT-SORT config (relative to project root)
@@ -157,7 +157,7 @@ def process_video_file(job_id: str, video_path: str, venue_id: str, db_url: str)
                     zone = get_zone(cx, cy, frame_width, frame_height)
 
                     if track_id not in track_data:
-                        # New track - extract demographics, embedding, behavior
+                        # New track - single-pass face analysis (demographics + embedding)
                         age, gender = None, None
                         embedding = None
                         embedding_quality = 0.0
@@ -171,14 +171,7 @@ def process_video_file(job_id: str, video_path: str, venue_id: str, db_url: str)
                             person_crop = frame[py1:py2, px1:px2]
 
                             if person_crop.size > 0:
-                                age, gender = estimate_demographics_from_crop(person_crop, h, frame_height)
-
-                                # Try to extract face embedding for ReID
-                                if reid_enabled and _reid is not None:
-                                    try:
-                                        embedding, embedding_quality = _reid.extract_face_embedding(person_crop)
-                                    except Exception:
-                                        pass
+                                age, gender, embedding, embedding_quality = analyze_face_single_pass(person_crop)
                         except Exception:
                             pass
 
@@ -218,11 +211,12 @@ def process_video_file(job_id: str, video_path: str, venue_id: str, db_url: str)
                             track_data[track_id]["zones"].append(zone)
 
                         # Periodically update demographics, embedding, and behavior
-                        needs_demographics = track_data[track_id]["age"] is None or track_data[track_id]["gender"] is None
-                        needs_embedding = reid_enabled and track_data[track_id].get("embedding") is None
-                        should_update_behavior = _behavior is not None and track_data[track_id]["frame_count"] % 3 == 0
+                        needs_face = (track_data[track_id]["age"] is None
+                                      or track_data[track_id]["gender"] is None
+                                      or (reid_enabled and track_data[track_id].get("embedding") is None))
+                        should_update_behavior = _behavior is not None and track_data[track_id]["frame_count"] % 6 == 0
 
-                        if (needs_demographics or needs_embedding or should_update_behavior) and track_data[track_id]["frame_count"] % 3 == 0:
+                        if (needs_face or should_update_behavior) and track_data[track_id]["frame_count"] % 6 == 0:
                             try:
                                 px1 = max(0, int(x1))
                                 py1 = max(0, int(y1))
@@ -231,22 +225,16 @@ def process_video_file(job_id: str, video_path: str, venue_id: str, db_url: str)
                                 person_crop = frame[py1:py2, px1:px2]
 
                                 if person_crop.size > 0:
-                                    if needs_demographics:
-                                        age, gender = estimate_demographics_from_crop(person_crop, h, frame_height)
+                                    if needs_face:
+                                        age, gender, embedding, quality = analyze_face_single_pass(person_crop)
                                         if age is not None:
                                             track_data[track_id]["age"] = age
                                         if gender is not None:
                                             track_data[track_id]["gender"] = gender
-
-                                    if needs_embedding and _reid is not None:
-                                        try:
-                                            embedding, quality = _reid.extract_face_embedding(person_crop)
-                                            if embedding is not None and quality > track_data[track_id].get("embedding_quality", 0):
-                                                track_data[track_id]["embedding"] = embedding
-                                                track_data[track_id]["embedding_quality"] = quality
-                                                track_data[track_id]["best_crop"] = person_crop.copy()
-                                        except Exception:
-                                            pass
+                                        if embedding is not None and quality > track_data[track_id].get("embedding_quality", 0):
+                                            track_data[track_id]["embedding"] = embedding
+                                            track_data[track_id]["embedding_quality"] = quality
+                                            track_data[track_id]["best_crop"] = person_crop.copy()
 
                                     if _behavior is not None:
                                         try:
