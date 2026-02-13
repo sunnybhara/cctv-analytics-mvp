@@ -14,6 +14,7 @@ from app.auth import require_api_key
 
 from app.database import database, events
 from app.config import DATABASE_URL
+from app.responses import success_response
 from app.schemas import StatsResponse
 
 router = APIRouter()
@@ -24,7 +25,7 @@ async def get_analytics(
     venue_id: str,
     days: int = Query(default=7, ge=1, le=90),
     _api_key: str = Depends(require_api_key)
-) -> StatsResponse:
+):
     """Get analytics for a venue."""
 
     since = datetime.utcnow() - timedelta(days=days)
@@ -153,7 +154,7 @@ async def get_analytics(
         else:
             data_quality = "low"
 
-    return StatsResponse(
+    return success_response(StatsResponse(
         venue_id=venue_id,
         period=f"Last {days} days",
         total_visitors=total,
@@ -166,7 +167,7 @@ async def get_analytics(
         confidence_level=confidence_level,
         visitor_range=visitor_range,
         data_quality=data_quality
-    )
+    ).model_dump())
 
 
 @router.get("/analytics/{venue_id}/hourly")
@@ -202,14 +203,14 @@ async def get_hourly_analytics(
         hourly[hour]["count"] += 1
         hourly[hour]["unique"].add(row["pseudo_id"])
 
-    return {
+    return success_response({
         "venue_id": venue_id,
         "date": str(target_date),
         "hourly": [
             {"hour": h, "visitors": data["count"], "unique": len(data["unique"])}
             for h, data in hourly.items()
         ]
-    }
+    })
 
 
 @router.get("/stats/{venue_id}/hourly")

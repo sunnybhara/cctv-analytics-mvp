@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import sqlalchemy
 from fastapi import Depends, APIRouter, HTTPException
 from app.auth import require_api_key
+from app.responses import success_response
 
 from app.database import database, events, visitor_embeddings
 
@@ -86,11 +87,11 @@ async def get_known_visitors(
             "loyalty_score": calculate_loyalty_score(row)
         })
 
-    return {
+    return success_response({
         "venue_id": venue_id,
         "total_known_visitors": len(visitors),
         "visitors": visitors
-    }
+    })
 
 
 @router.get("/api/visitors/{venue_id}/stats")
@@ -105,13 +106,13 @@ async def get_visitor_loyalty_stats(venue_id: str, _api_key: str = Depends(requi
     rows = await database.fetch_all(query)
 
     if not rows:
-        return {
+        return success_response({
             "venue_id": venue_id,
             "total_known_visitors": 0,
             "loyalty_distribution": {},
             "avg_visits_per_visitor": 0,
             "avg_lifetime_dwell_minutes": 0
-        }
+        })
 
     # Calculate stats
     loyalty_counts = {"VIP": 0, "Regular": 0, "Returning": 0, "New": 0, "Lapsed": 0}
@@ -126,7 +127,7 @@ async def get_visitor_loyalty_stats(venue_id: str, _api_key: str = Depends(requi
 
     total_visitors = len(rows)
 
-    return {
+    return success_response({
         "venue_id": venue_id,
         "total_known_visitors": total_visitors,
         "loyalty_distribution": loyalty_counts,
@@ -136,7 +137,7 @@ async def get_visitor_loyalty_stats(venue_id: str, _api_key: str = Depends(requi
         "avg_visits_per_visitor": round(total_visits / total_visitors, 1),
         "avg_lifetime_dwell_minutes": round(total_dwell / total_visitors / 60, 1),
         "total_return_visits": total_visits - total_visitors  # Total visits minus first visits
-    }
+    })
 
 
 @router.get("/api/visitors/{venue_id}/history/{visitor_id}")
@@ -193,7 +194,7 @@ async def get_visitor_history(venue_id: str, visitor_id: str, _api_key: str = De
             "zones_visited": list(s["zones"])
         })
 
-    return {
+    return success_response({
         "venue_id": venue_id,
         "visitor_id": visitor_id,
         "profile": {
@@ -206,7 +207,7 @@ async def get_visitor_history(venue_id: str, visitor_id: str, _api_key: str = De
             "loyalty_tier": calculate_loyalty_score(visitor)
         },
         "sessions": session_list
-    }
+    })
 
 
 @router.get("/api/visitors/{venue_id}/returning")
@@ -259,7 +260,7 @@ async def get_returning_visitor_analytics(
         if (v["visit_count"] or 1) > 1 and v["visitor_id"] in known_visitors_seen
     ]
 
-    return {
+    return success_response({
         "venue_id": venue_id,
         "period": f"Last {days} days",
         "summary": {
@@ -282,4 +283,4 @@ async def get_returning_visitor_analytics(
             }
             for v in sorted(returning_visitors, key=lambda x: x["visit_count"] or 0, reverse=True)[:10]
         ]
-    }
+    })

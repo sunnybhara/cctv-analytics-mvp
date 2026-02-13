@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import sqlalchemy
 from fastapi import APIRouter, Depends
 from app.auth import require_api_key
+from app.responses import success_response
 from fastapi.responses import HTMLResponse
 
 from app.database import database, events
@@ -16,16 +17,8 @@ from app.database import database, events
 router = APIRouter()
 
 
-@router.get("/analytics/{venue_id}/demographics")
-async def get_demographics_analytics(
-    venue_id: str,
-    days: int = 7,
-    _api_key: str = Depends(require_api_key)
-):
-    """
-    Get demographic breakdown (Nielsen-style).
-    Returns age and gender distribution with week-over-week comparison.
-    """
+async def _demographics_data(venue_id: str, days: int = 7):
+    """Internal helper: compute demographics data as a dict."""
     end_date = datetime.utcnow()
     start_date = end_date - timedelta(days=days)
     prev_start = start_date - timedelta(days=days)
@@ -99,16 +92,21 @@ async def get_demographics_analytics(
     }
 
 
-@router.get("/analytics/{venue_id}/zones")
-async def get_zone_analytics(
+@router.get("/analytics/{venue_id}/demographics")
+async def get_demographics_analytics(
     venue_id: str,
     days: int = 7,
     _api_key: str = Depends(require_api_key)
 ):
     """
-    Get zone performance analytics (Nielsen-style).
-    Shows traffic, dwell time, and engagement per zone.
+    Get demographic breakdown (Nielsen-style).
+    Returns age and gender distribution with week-over-week comparison.
     """
+    return success_response(await _demographics_data(venue_id, days))
+
+
+async def _zone_data(venue_id: str, days: int = 7):
+    """Internal helper: compute zone analytics data as a dict."""
     end_date = datetime.utcnow()
     start_date = end_date - timedelta(days=days)
 
@@ -157,6 +155,19 @@ async def get_zone_analytics(
         "total_unique_visitors": len(total_visitors),
         "zones": result
     }
+
+
+@router.get("/analytics/{venue_id}/zones")
+async def get_zone_analytics(
+    venue_id: str,
+    days: int = 7,
+    _api_key: str = Depends(require_api_key)
+):
+    """
+    Get zone performance analytics (Nielsen-style).
+    Shows traffic, dwell time, and engagement per zone.
+    """
+    return success_response(await _zone_data(venue_id, days))
 
 
 @router.get("/analytics/{venue_id}/trends")
@@ -226,25 +237,17 @@ async def get_trend_analytics(
         trend = "insufficient_data"
         growth_rate = 0
 
-    return {
+    return success_response({
         "venue_id": venue_id,
         "period": f"Last {weeks} weeks",
         "weekly": result,
         "trend": trend,
         "growth_rate_percent": growth_rate
-    }
+    })
 
 
-@router.get("/analytics/{venue_id}/summary")
-async def get_executive_summary(
-    venue_id: str,
-    days: int = 7,
-    _api_key: str = Depends(require_api_key)
-):
-    """
-    Executive summary (Nielsen-style).
-    Key metrics and insights for quick overview.
-    """
+async def _executive_summary_data(venue_id: str, days: int = 7):
+    """Internal helper: compute executive summary data as a dict."""
     end_date = datetime.utcnow()
     start_date = end_date - timedelta(days=days)
     prev_start = start_date - timedelta(days=days)
@@ -376,16 +379,21 @@ async def get_executive_summary(
     }
 
 
-@router.get("/analytics/{venue_id}/heatmap")
-async def get_hourly_heatmap(
+@router.get("/analytics/{venue_id}/summary")
+async def get_executive_summary(
     venue_id: str,
-    weeks: int = 4,
+    days: int = 7,
     _api_key: str = Depends(require_api_key)
 ):
     """
-    Get hourly heatmap data (Nielsen-style).
-    Returns visitor counts by day-of-week and hour for heatmap visualization.
+    Executive summary (Nielsen-style).
+    Key metrics and insights for quick overview.
     """
+    return success_response(await _executive_summary_data(venue_id, days))
+
+
+async def _heatmap_data(venue_id: str, weeks: int = 4):
+    """Internal helper: compute heatmap data as a dict."""
     end_date = datetime.utcnow()
     start_date = end_date - timedelta(weeks=weeks)
 
@@ -433,6 +441,19 @@ async def get_hourly_heatmap(
     }
 
 
+@router.get("/analytics/{venue_id}/heatmap")
+async def get_hourly_heatmap(
+    venue_id: str,
+    weeks: int = 4,
+    _api_key: str = Depends(require_api_key)
+):
+    """
+    Get hourly heatmap data (Nielsen-style).
+    Returns visitor counts by day-of-week and hour for heatmap visualization.
+    """
+    return success_response(await _heatmap_data(venue_id, weeks))
+
+
 @router.get("/analytics/{venue_id}/export")
 async def export_analytics(
     venue_id: str,
@@ -444,14 +465,14 @@ async def export_analytics(
     Export analytics data for reporting.
     Combines all analytics into a single exportable format.
     """
-    from app.routers.behavior import get_behavior_analytics
+    from app.routers.behavior import _behavior_analytics_data
 
-    # Gather all analytics
-    summary = await get_executive_summary(venue_id, days)
-    demographics = await get_demographics_analytics(venue_id, days)
-    zones = await get_zone_analytics(venue_id, days)
-    heatmap = await get_hourly_heatmap(venue_id, weeks=max(1, days // 7))
-    behavior = await get_behavior_analytics(venue_id, days)
+    # Gather all analytics (use internal helpers to get raw dicts)
+    summary = await _executive_summary_data(venue_id, days)
+    demographics = await _demographics_data(venue_id, days)
+    zones = await _zone_data(venue_id, days)
+    heatmap = await _heatmap_data(weeks=max(1, days // 7), venue_id=venue_id)
+    behavior = await _behavior_analytics_data(venue_id, days)
 
     export_data = {
         "venue_id": venue_id,
@@ -491,4 +512,4 @@ async def export_analytics(
             headers={"Content-Disposition": f"attachment; filename={venue_id}_analytics.csv"}
         )
 
-    return export_data
+    return success_response(export_data)

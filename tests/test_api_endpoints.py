@@ -35,7 +35,7 @@ class TestVenueEndpoints:
             "longitude": 28.0
         })
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert data["venue_id"] == "new_venue"
         assert "api_key" in data
         assert len(data["api_key"]) == 64  # SHA256 hex
@@ -48,7 +48,7 @@ class TestVenueEndpoints:
             "latitude": -26.2041,
             "longitude": 28.0473
         })
-        data = response.json()
+        data = response.json()["data"]
         assert "h3_zone" in data
         assert data["h3_zone"] is not None
 
@@ -64,7 +64,7 @@ class TestVenueEndpoints:
     async def test_list_venues(self, client, test_venue):
         response = await client.get("/venues")
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert isinstance(data, list)
 
     @pytest.mark.asyncio
@@ -83,14 +83,14 @@ class TestAnalyticsEndpoints:
     async def test_analytics_empty_venue(self, client, test_venue):
         response = await client.get("/analytics/test_venue?days=7")
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert data["unique_visitors"] == 0
 
     @pytest.mark.asyncio
     async def test_analytics_with_data(self, client, test_venue_with_data):
         response = await client.get("/analytics/test_venue?days=7")
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert data["unique_visitors"] > 0
 
     @pytest.mark.asyncio
@@ -117,7 +117,7 @@ class TestSummaryEndpoint:
     async def test_summary_returns_required_fields(self, client, test_venue):
         response = await client.get("/analytics/test_venue/summary?days=7")
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
 
         # Check required top-level fields
         assert "venue_id" in data
@@ -130,7 +130,7 @@ class TestSummaryEndpoint:
     @pytest.mark.asyncio
     async def test_summary_current_has_all_metrics(self, client, test_venue):
         response = await client.get("/analytics/test_venue/summary?days=7")
-        data = response.json()
+        data = response.json()["data"]
         current = data["current"]
 
         required_fields = [
@@ -144,7 +144,7 @@ class TestSummaryEndpoint:
     @pytest.mark.asyncio
     async def test_summary_with_data(self, client, test_venue_with_data):
         response = await client.get("/analytics/test_venue/summary?days=7")
-        data = response.json()
+        data = response.json()["data"]
         assert data["current"]["unique_visitors"] > 0
 
 
@@ -155,14 +155,14 @@ class TestHourlyEndpoint:
     async def test_hourly_returns_24_hours(self, client, test_venue):
         response = await client.get("/analytics/test_venue/hourly")
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert "hourly" in data
         assert len(data["hourly"]) == 24
 
     @pytest.mark.asyncio
     async def test_hourly_hours_are_sequential(self, client, test_venue):
         response = await client.get("/analytics/test_venue/hourly")
-        data = response.json()
+        data = response.json()["data"]
         hours = [h["hour"] for h in data["hourly"]]
         assert hours == list(range(24))
 
@@ -174,7 +174,7 @@ class TestDemographicsEndpoint:
     async def test_demographics_structure(self, client, test_venue):
         response = await client.get("/analytics/test_venue/demographics?days=7")
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert "current" in data
         assert "gender" in data["current"]
         assert "age" in data["current"]
@@ -182,7 +182,7 @@ class TestDemographicsEndpoint:
     @pytest.mark.asyncio
     async def test_demographics_with_data(self, client, test_venue_with_data):
         response = await client.get("/analytics/test_venue/demographics?days=7")
-        data = response.json()
+        data = response.json()["data"]
         # Should have gender data
         assert data["current"]["total"] > 0
 
@@ -194,14 +194,14 @@ class TestZonesEndpoint:
     async def test_zones_returns_list(self, client, test_venue):
         response = await client.get("/analytics/test_venue/zones?days=7")
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert "zones" in data
         assert isinstance(data["zones"], list)
 
     @pytest.mark.asyncio
     async def test_zones_with_data(self, client, test_venue_with_data):
         response = await client.get("/analytics/test_venue/zones?days=7")
-        data = response.json()
+        data = response.json()["data"]
         assert len(data["zones"]) > 0
 
 
@@ -212,7 +212,7 @@ class TestBehaviorEndpoints:
     async def test_behavior_structure(self, client, test_venue):
         response = await client.get("/analytics/test_venue/behavior?days=7")
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
 
         assert "engagement" in data
         assert "behavior_types" in data
@@ -223,14 +223,14 @@ class TestBehaviorEndpoints:
     async def test_behavior_hourly(self, client, test_venue):
         response = await client.get("/analytics/test_venue/behavior/hourly?days=7")
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert "hourly_engagement" in data
 
     @pytest.mark.asyncio
     async def test_behavior_zones(self, client, test_venue):
         response = await client.get("/analytics/test_venue/behavior/zones?days=7")
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert "zones" in data
         assert "insights" in data
 
@@ -242,7 +242,7 @@ class TestHeatmapEndpoint:
     async def test_heatmap_structure(self, client, test_venue):
         response = await client.get("/analytics/test_venue/heatmap?weeks=1")
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
 
         assert "heatmap" in data
         assert "max_count" in data
@@ -251,7 +251,7 @@ class TestHeatmapEndpoint:
     @pytest.mark.asyncio
     async def test_heatmap_has_all_days(self, client, test_venue):
         response = await client.get("/analytics/test_venue/heatmap?weeks=1")
-        data = response.json()
+        data = response.json()["data"]
         # API returns list of {day, hour, count, intensity} objects
         days_in_heatmap = set(item["day"] for item in data["heatmap"])
         expected_days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
@@ -265,7 +265,7 @@ class TestExportEndpoint:
     async def test_export_json(self, client, test_venue):
         response = await client.get("/analytics/test_venue/export?format=json")
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["data"]
         assert "executive_summary" in data
         assert "demographics" in data
         assert "zone_performance" in data

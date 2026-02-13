@@ -10,7 +10,8 @@ from fastapi import APIRouter, Query, Depends, Request
 from app.auth import require_api_key
 
 from app.database import database, events
-from app.schemas import EventBatch, SingleEvent, StatsResponse
+from app.responses import success_response
+from app.schemas import EventBatch, SingleEvent
 from app import limiter
 
 router = APIRouter()
@@ -41,7 +42,7 @@ async def submit_events(request: Request, batch: EventBatch, _api_key: str = Dep
         await database.execute(query)
         inserted += 1
 
-    return {"status": "ok", "inserted": inserted}
+    return success_response({"status": "ok", "inserted": inserted})
 
 
 @limiter.limit("100/minute")
@@ -66,7 +67,7 @@ async def submit_events_batch(request: Request, event_list: List[SingleEvent], _
         await database.execute(query)
         inserted += 1
 
-    return {"status": "ok", "inserted": inserted}
+    return success_response({"status": "ok", "inserted": inserted})
 
 
 @router.get("/stats/{venue_id}")
@@ -74,7 +75,7 @@ async def get_stats(
     venue_id: str,
     days: int = Query(default=7, ge=1, le=90),
     _api_key: str = Depends(require_api_key)
-) -> StatsResponse:
+):
     """Get analytics for a venue (legacy endpoint, use /analytics/{venue_id})."""
     from app.routers.analytics import get_analytics
     return await get_analytics(venue_id, days)

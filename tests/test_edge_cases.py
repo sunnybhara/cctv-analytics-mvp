@@ -79,7 +79,7 @@ class TestEmptyDataHandling:
         # Create empty venue
         await client.post("/venues", json={"id": empty_venue, "name": "Empty Venue"})
         response = await client.get(f"/analytics/{empty_venue}?days=7")
-        data = response.json()
+        data = response.json()["data"]
         assert data["unique_visitors"] == 0
         assert data["total_visitors"] == 0
 
@@ -90,7 +90,7 @@ class TestEmptyDataHandling:
         empty_venue = f"empty_sum_{uuid.uuid4().hex[:8]}"
         await client.post("/venues", json={"id": empty_venue, "name": "Empty Summary"})
         response = await client.get(f"/analytics/{empty_venue}/summary?days=7")
-        data = response.json()
+        data = response.json()["data"]
         assert isinstance(data["insights"], list)
 
     @pytest.mark.asyncio
@@ -100,7 +100,7 @@ class TestEmptyDataHandling:
         empty_venue = f"empty_zone_{uuid.uuid4().hex[:8]}"
         await client.post("/venues", json={"id": empty_venue, "name": "Empty Zones"})
         response = await client.get(f"/analytics/{empty_venue}/zones?days=7")
-        data = response.json()
+        data = response.json()["data"]
         assert data["zones"] == []
 
     @pytest.mark.asyncio
@@ -110,7 +110,7 @@ class TestEmptyDataHandling:
         empty_venue = f"empty_beh_{uuid.uuid4().hex[:8]}"
         await client.post("/venues", json={"id": empty_venue, "name": "Empty Behavior"})
         response = await client.get(f"/analytics/{empty_venue}/behavior?days=7")
-        data = response.json()
+        data = response.json()["data"]
         assert data["total_analyzed"] == 0
         assert data["behavior_types"] == {}
 
@@ -188,8 +188,8 @@ class TestDataIntegrity:
         analytics = await client.get("/analytics/test_venue?days=7")
         summary = await client.get("/analytics/test_venue/summary?days=7")
 
-        analytics_data = analytics.json()
-        summary_data = summary.json()
+        analytics_data = analytics.json()["data"]
+        summary_data = summary.json()["data"]
 
         assert analytics_data["unique_visitors"] == summary_data["current"]["unique_visitors"]
 
@@ -199,8 +199,8 @@ class TestDataIntegrity:
         zones = await client.get("/analytics/test_venue/zones?days=7")
         analytics = await client.get("/analytics/test_venue?days=7")
 
-        zones_data = zones.json()
-        analytics_data = analytics.json()
+        zones_data = zones.json()["data"]
+        analytics_data = analytics.json()["data"]
 
         # Zone visitors may exceed total unique visitors (same person in multiple zones)
         # But total events should match

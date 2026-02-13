@@ -11,6 +11,7 @@ import sqlalchemy
 from fastapi import APIRouter, HTTPException
 
 from app.database import database, venues
+from app.responses import success_response
 from app.schemas import VenueCreate
 from app.video.helpers import lat_long_to_h3
 
@@ -46,12 +47,12 @@ async def create_venue(venue: VenueCreate):
     except Exception as e:
         raise HTTPException(status_code=400, detail="Venue with this ID already exists")
 
-    return {
+    return success_response({
         "venue_id": venue.id,
         "api_key": api_key,
         "h3_zone": h3_zone,
         "message": "Save this API key - it won't be shown again"
-    }
+    })
 
 
 @router.get("/venues")
@@ -63,14 +64,14 @@ async def list_venues():
         venues.c.city, venues.c.country, venues.c.venue_type
     )
     rows = await database.fetch_all(query)
-    return [{
+    return success_response([{
         "id": r["id"],
         "name": r["name"],
-        "created_at": r["created_at"],
+        "created_at": r["created_at"].isoformat() if r["created_at"] else None,
         "latitude": r["latitude"],
         "longitude": r["longitude"],
         "h3_zone": r["h3_zone"],
         "city": r["city"],
         "country": r["country"],
         "venue_type": r["venue_type"]
-    } for r in rows]
+    } for r in rows])

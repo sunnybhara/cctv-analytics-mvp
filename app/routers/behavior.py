@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 import sqlalchemy
 from fastapi import APIRouter, Depends
 from app.auth import require_api_key
+from app.responses import success_response
 from fastapi.responses import HTMLResponse
 
 from app.database import database, events
@@ -17,12 +18,8 @@ from app.database import database, events
 router = APIRouter()
 
 
-@router.get("/analytics/{venue_id}/behavior")
-async def get_behavior_analytics(venue_id: str, days: int = 7, _api_key: str = Depends(require_api_key)):
-    """
-    Get behavior and engagement analytics for a venue.
-    Returns engagement scores, behavior type breakdown, and posture analysis.
-    """
+async def _behavior_analytics_data(venue_id: str, days: int = 7):
+    """Internal helper: compute behavior analytics data as a dict."""
     cutoff = datetime.utcnow() - timedelta(days=days)
 
     query = """
@@ -108,6 +105,15 @@ async def get_behavior_analytics(venue_id: str, days: int = 7, _api_key: str = D
     }
 
 
+@router.get("/analytics/{venue_id}/behavior")
+async def get_behavior_analytics(venue_id: str, days: int = 7, _api_key: str = Depends(require_api_key)):
+    """
+    Get behavior and engagement analytics for a venue.
+    Returns engagement scores, behavior type breakdown, and posture analysis.
+    """
+    return success_response(await _behavior_analytics_data(venue_id, days))
+
+
 @router.get("/analytics/{venue_id}/behavior/hourly")
 async def get_behavior_hourly(venue_id: str, days: int = 7, _api_key: str = Depends(require_api_key)):
     """
@@ -153,14 +159,14 @@ async def get_behavior_hourly(venue_id: str, days: int = 7, _api_key: str = Depe
             "passing_count": row["passing_count"] or 0,
         })
 
-    return {
+    return success_response({
         "venue_id": venue_id,
         "period_days": days,
         "hourly_engagement": hourly_data,
         "peak_engagement_hour": peak_engagement_hour,
         "peak_engagement_score": round(peak_engagement_score, 1),
         "insight": f"Visitors are most engaged at {peak_engagement_hour}:00 (avg score: {round(peak_engagement_score, 1)})"
-    }
+    })
 
 
 @router.get("/analytics/{venue_id}/behavior/zones")
@@ -211,7 +217,7 @@ async def get_behavior_by_zone(venue_id: str, days: int = 7, _api_key: str = Dep
     best_zone = zones[0]["zone"] if zones else "unknown"
     worst_zone = zones[-1]["zone"] if zones else "unknown"
 
-    return {
+    return success_response({
         "venue_id": venue_id,
         "period_days": days,
         "zones": zones,
@@ -220,7 +226,7 @@ async def get_behavior_by_zone(venue_id: str, days: int = 7, _api_key: str = Dep
             "lowest_engagement_zone": worst_zone,
             "recommendation": f"Focus on improving engagement in the '{worst_zone}' zone" if worst_zone != best_zone else "All zones performing similarly"
         }
-    }
+    })
 
 
 @router.get("/report/{venue_id}", response_class=HTMLResponse)
@@ -231,12 +237,12 @@ async def generate_report(venue_id: str, days: int = 7):
     """
     import html
     venue_id = html.escape(venue_id)
-    from app.routers.advanced_analytics import get_executive_summary, get_demographics_analytics, get_zone_analytics
+    from app.routers.advanced_analytics import _executive_summary_data, _demographics_data, _zone_data
 
-    # Gather data
-    summary = await get_executive_summary(venue_id, days)
-    demographics = await get_demographics_analytics(venue_id, days)
-    zones = await get_zone_analytics(venue_id, days)
+    # Gather data (use internal helpers to get raw dicts)
+    summary = await _executive_summary_data(venue_id, days)
+    demographics = await _demographics_data(venue_id, days)
+    zones = await _zone_data(venue_id, days)
 
     current = summary["current"]
     change = summary["change"]

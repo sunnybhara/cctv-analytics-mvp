@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 import sqlalchemy
 from fastapi import Depends, APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
 from app.auth import require_api_key
+from app.responses import success_response
 from app import limiter
 
 from app.config import DATABASE_URL, ALLOWED_VIDEO_DOMAINS, MAX_UPLOAD_SIZE_BYTES
@@ -138,7 +139,7 @@ async def process_youtube(request: Request, data: dict, background_tasks: Backgr
     thread = threading.Thread(target=download_and_process)
     thread.start()
 
-    return {"job_id": job_id, "status": "started"}
+    return success_response({"job_id": job_id, "status": "started"})
 
 
 @limiter.limit("10/minute")
@@ -194,7 +195,7 @@ async def process_upload(
     thread = threading.Thread(target=process_and_cleanup)
     thread.start()
 
-    return {"job_id": job_id, "status": "started"}
+    return success_response({"job_id": job_id, "status": "started"})
 
 
 @router.get("/process/status/{job_id}")
@@ -203,4 +204,4 @@ async def get_process_status(job_id: str, _api_key: str = Depends(require_api_ke
     if job_id not in processing_jobs:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    return processing_jobs[job_id]
+    return success_response(processing_jobs[job_id])

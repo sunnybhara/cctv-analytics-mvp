@@ -7,6 +7,7 @@ Venue data with visitor counts for map display.
 import sqlalchemy
 from sqlalchemy import func
 from fastapi import APIRouter
+from app.responses import success_response
 
 from app.database import database, venues, events
 
@@ -43,4 +44,4 @@ async def get_map_venues():
             "visitors": visitors
         })
 
-    return {"venues": result}
+    return success_response({"venues": result})

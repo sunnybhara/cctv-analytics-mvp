@@ -11,6 +11,7 @@ from fastapi import Depends, APIRouter, HTTPException
 from app.auth import require_api_key
 
 from app.database import database, events, venues
+from app.responses import success_response
 
 router = APIRouter()
 
@@ -75,7 +76,7 @@ async def compare_venues(venue_ids: str, days: int = 7, _api_key: str = Depends(
     avg_dwell = sum(r["avg_dwell_minutes"] for r in results) / len(results) if results else 0
     avg_return = sum(r["return_rate_percent"] for r in results) / len(results) if results else 0
 
-    return {
+    return success_response({
         "period": f"Last {days} days",
         "venues": results,
         "averages": {
@@ -83,7 +84,7 @@ async def compare_venues(venue_ids: str, days: int = 7, _api_key: str = Depends(
             "avg_dwell_minutes": round(avg_dwell, 1),
             "return_rate_percent": round(avg_return, 1)
         }
-    }
+    })
 
 
 @router.get("/api/benchmark/industry")
@@ -99,7 +100,7 @@ async def get_industry_benchmarks(venue_type: str = "bar", days: int = 7, _api_k
 
     if not venue_ids:
         # Return generic benchmarks if no venues of this type
-        return {
+        return success_response({
             "venue_type": venue_type,
             "sample_size": 0,
             "benchmarks": {
@@ -109,7 +110,7 @@ async def get_industry_benchmarks(venue_type: str = "bar", days: int = 7, _api_k
                 "peak_hour": 20
             },
             "note": "Generic industry estimates - no venue data available"
-        }
+        })
 
     end_date = datetime.utcnow()
     start_date = end_date - timedelta(days=days)
@@ -144,7 +145,7 @@ async def get_industry_benchmarks(venue_type: str = "bar", days: int = 7, _api_k
 
     peak_hour = max(hourly_counts, key=hourly_counts.get) if hourly_counts else 20
 
-    return {
+    return success_response({
         "venue_type": venue_type,
         "sample_size": len(venue_ids),
         "period": f"Last {days} days",
@@ -154,4 +155,4 @@ async def get_industry_benchmarks(venue_type: str = "bar", days: int = 7, _api_k
             "return_rate_percent": round(sum(all_returns) / len(all_returns), 1) if all_returns else 0,
             "peak_hour": peak_hour
         }
-    }
+    })

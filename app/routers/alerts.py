@@ -12,6 +12,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from app.auth import require_api_key
 
 from app.database import database, events, alerts
+from app.responses import success_response
 
 router = APIRouter()
 
@@ -118,7 +119,7 @@ async def list_alerts(
 
     rows = await database.fetch_all(query)
 
-    return {
+    return success_response({
         "alerts": [
             {
                 "id": r["id"],
@@ -133,7 +134,7 @@ async def list_alerts(
             }
             for r in rows
         ]
-    }
+    })
 
 
 @router.post("/api/alerts/{alert_id}/acknowledge")
@@ -148,15 +149,15 @@ async def acknowledge_alert(alert_id: int, _api_key: str = Depends(require_api_k
     if result == 0:
         raise HTTPException(status_code=404, detail="Alert not found")
 
-    return {"message": "Alert acknowledged", "alert_id": alert_id}
+    return success_response({"message": "Alert acknowledged", "alert_id": alert_id})
 
 
 @router.post("/api/alerts/check/{venue_id}")
 async def trigger_anomaly_check(venue_id: str, _api_key: str = Depends(require_api_key)):
     """Manually trigger anomaly detection for a venue."""
     detected = await check_anomalies(venue_id)
-    return {
+    return success_response({
         "venue_id": venue_id,
         "alerts_generated": len(detected),
         "alerts": detected
-    }
+    })

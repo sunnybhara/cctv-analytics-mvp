@@ -15,6 +15,7 @@ import sqlalchemy
 from sqlalchemy import func
 from fastapi import Depends, APIRouter, HTTPException, UploadFile, File, Form, Request
 from app.auth import require_api_key
+from app.responses import success_response
 from app import limiter
 
 from app.config import ALLOWED_VIDEO_DOMAINS, MAX_UPLOAD_SIZE_BYTES
@@ -84,10 +85,10 @@ async def batch_upload(
     # Start queue processor if not running
     ensure_queue_processor_running()
 
-    return {
+    return success_response({
         "message": f"Queued {len(created_jobs)} videos for processing",
         "jobs": created_jobs
-    }
+    })
 
 @limiter.limit("10/minute")
 @router.post("/api/batch/url")
@@ -167,10 +168,10 @@ async def batch_url(
     # Start queue processor if not running
     ensure_queue_processor_running()
 
-    return {
+    return success_response({
         "message": f"Queued {len([j for j in created_jobs if j['status'] == 'pending'])} videos for processing",
         "jobs": created_jobs
-    }
+    })
 
 @router.get("/api/batch/jobs")
 async def list_jobs(
@@ -191,7 +192,7 @@ async def list_jobs(
 
     rows = await database.fetch_all(query)
 
-    return {
+    return success_response({
         "jobs": [
             {
                 "id": row["id"],
@@ -207,7 +208,7 @@ async def list_jobs(
             }
             for row in rows
         ]
-    }
+    })
 
 @router.get("/api/batch/jobs/{job_id}")
 async def get_job(job_id: str, _api_key: str = Depends(require_api_key)):
@@ -221,7 +222,7 @@ async def get_job(job_id: str, _api_key: str = Depends(require_api_key)):
     # Merge with in-memory status for live progress
     live_status = processing_jobs.get(job_id, {})
 
-    return {
+    return success_response({
         "id": row["id"],
         "venue_id": row["venue_id"],
         "status": row["status"],
@@ -235,7 +236,7 @@ async def get_job(job_id: str, _api_key: str = Depends(require_api_key)):
         "visitors_detected": live_status.get("visitors_detected", row["visitors_detected"]),
         "error_message": row["error_message"],
         "message": live_status.get("message", "")
-    }
+    })
 
 @router.delete("/api/batch/jobs/{job_id}")
 async def cancel_job(job_id: str, _api_key: str = Depends(require_api_key)):
@@ -260,7 +261,7 @@ async def cancel_job(job_id: str, _api_key: str = Depends(require_api_key)):
         except Exception:
             pass
 
-    return {"message": "Job cancelled", "job_id": job_id}
+    return success_response({"message": "Job cancelled", "job_id": job_id})
 
 @router.get("/api/batch/stats")
 async def batch_stats(_api_key: str = Depends(require_api_key)):
@@ -286,7 +287,7 @@ async def batch_stats(_api_key: str = Depends(require_api_key)):
         sqlalchemy.select(func.sum(jobs.c.visitors_detected)).select_from(jobs).where(jobs.c.status == "completed")
     ) or 0
 
-    return {
+    return success_response({
         "queue": {
             "pending": pending or 0,
             "processing": processing or 0,
@@ -296,4 +297,4 @@ async def batch_stats(_api_key: str = Depends(require_api_key)):
         },
         "total_visitors_detected": total_visitors,
         "processor_running": _queue_processor_running
-    }
+    })
