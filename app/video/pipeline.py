@@ -270,54 +270,127 @@ def process_video_file(job_id: str, video_path: str, venue_id: str, db_url: str)
         processing_jobs[job_id]["message"] = "Generating events..."
 
         # Filter out short-lived tracks (noise/false detections)
-        MIN_FRAMES = 5
+        MIN_FRAMES = 8
         valid_tracks = {tid: data for tid, data in track_data.items()
                        if data.get("frame_count", 1) >= MIN_FRAMES}
 
-        # IMPROVED COUNTING: Use max concurrent tracks as ground truth
-        def get_max_concurrent_and_filter(tracks):
+        # DEDUPLICATION: Merge tracks that belong to the same person
+        # Uses ArcFace face embeddings to detect when the tracker assigned
+        # multiple IDs to the same person (e.g. after brief occlusion).
+        MERGE_SIMILARITY = 0.60  # Lower than ReID threshold (0.68) to catch same-video duplicates
+        def merge_duplicate_tracks(tracks):
+            if len(tracks) <= 1 or _reid is None:
+                return tracks
+
+            # Separate tracks with and without embeddings
+            with_emb = {tid: data for tid, data in tracks.items() if data.get("embedding") is not None}
+            without_emb = {tid: data for tid, data in tracks.items() if data.get("embedding") is None}
+
+            if len(with_emb) <= 1:
+                return tracks
+
+            # Build list for pairwise comparison, sorted by first_seen
+            tids = sorted(with_emb.keys(), key=lambda t: with_emb[t]["first_seen"])
+
+            # Union-find for merging
+            parent = {tid: tid for tid in tids}
+            def find(x):
+                while parent[x] != x:
+                    parent[x] = parent[parent[x]]
+                    x = parent[x]
+                return x
+
+            # Compare all pairs — only merge if tracks DON'T overlap in time
+            for i in range(len(tids)):
+                for j in range(i + 1, len(tids)):
+                    if find(tids[i]) == find(tids[j]):
+                        continue
+                    a, b = with_emb[tids[i]], with_emb[tids[j]]
+                    # Skip if tracks overlap (two different people visible at same time)
+                    if a["first_seen"] <= b["last_seen"] and b["first_seen"] <= a["last_seen"]:
+                        continue
+                    sim = _reid.cosine_similarity(a["embedding"], b["embedding"])
+                    if sim >= MERGE_SIMILARITY:
+                        parent[find(tids[j])] = find(tids[i])
+
+            # Group tracks by their root
+            groups = {}
+            for tid in tids:
+                root = find(tid)
+                groups.setdefault(root, []).append(tid)
+
+            # Merge each group into a single track (keep the longest as primary)
+            merged = {}
+            for root, group_tids in groups.items():
+                primary_tid = max(group_tids, key=lambda t: with_emb[t]["frame_count"])
+                primary = dict(with_emb[primary_tid])
+
+                for tid in group_tids:
+                    if tid == primary_tid:
+                        continue
+                    other = with_emb[tid]
+                    # Extend time range
+                    if other["first_seen"] < primary["first_seen"]:
+                        primary["first_seen"] = other["first_seen"]
+                    if other["last_seen"] > primary["last_seen"]:
+                        primary["last_seen"] = other["last_seen"]
+                    # Merge zones
+                    for z in other.get("zones", []):
+                        if z not in primary["zones"]:
+                            primary["zones"].append(z)
+                    # Sum frames
+                    primary["frame_count"] = primary.get("frame_count", 0) + other.get("frame_count", 0)
+                    primary["conf_sum"] = primary.get("conf_sum", 0) + other.get("conf_sum", 0)
+                    # Keep best embedding
+                    if other.get("embedding_quality", 0) > primary.get("embedding_quality", 0):
+                        primary["embedding"] = other["embedding"]
+                        primary["embedding_quality"] = other["embedding_quality"]
+                    # Merge behavior data
+                    for key in ["behavior_scores", "behavior_types", "body_orientations", "postures"]:
+                        primary.setdefault(key, []).extend(other.get(key, []))
+
+                merged[primary_tid] = primary
+
+            # Add back tracks without embeddings
+            merged.update(without_emb)
+            return merged
+
+        valid_tracks = merge_duplicate_tracks(valid_tracks)
+
+        # MAX-CONCURRENT CAP: If at most N people are ever visible at once,
+        # there can be at most N unique people. Keep the N longest tracks.
+        def cap_by_max_concurrent(tracks):
             if len(tracks) <= 1:
                 return tracks
 
+            # Sweep-line to find max simultaneous tracks
             time_events = []
             for tid, data in tracks.items():
-                time_events.append((data["first_seen"], "start", tid))
-                time_events.append((data["last_seen"], "end", tid))
-            time_events.sort(key=lambda x: x[0])
+                time_events.append((data["first_seen"], 0, tid))   # 0 = start (sort before end)
+                time_events.append((data["last_seen"], 1, tid))    # 1 = end
+            time_events.sort()
 
             active = set()
             max_concurrent = 0
-            max_active_set = set()
-
-            for time, event_type, tid in time_events:
-                if event_type == "start":
+            for ts, etype, tid in time_events:
+                if etype == 0:
                     active.add(tid)
                 else:
-                    if len(active) > max_concurrent:
-                        max_concurrent = len(active)
-                        max_active_set = active.copy()
                     active.discard(tid)
+                max_concurrent = max(max_concurrent, len(active))
 
-            if len(active) > max_concurrent:
-                max_concurrent = len(active)
-                max_active_set = active.copy()
+            if len(tracks) <= max_concurrent:
+                return tracks
 
-            video_duration = max((d["last_seen"] - d["first_seen"]).total_seconds() for d in tracks.values())
-            min_duration_threshold = video_duration * 0.3
+            # Keep the top N tracks by frame_count (longest-lived = most confident)
+            sorted_tids = sorted(tracks.keys(), key=lambda t: tracks[t].get("frame_count", 0), reverse=True)
+            return {tid: tracks[tid] for tid in sorted_tids[:max_concurrent]}
 
-            selected = {}
-            for tid, data in tracks.items():
-                duration = (data["last_seen"] - data["first_seen"]).total_seconds()
-                if tid in max_active_set or duration >= min_duration_threshold:
-                    selected[tid] = data
-
-            return selected
-
-        valid_tracks = get_max_concurrent_and_filter(valid_tracks)
+        valid_tracks = cap_by_max_concurrent(valid_tracks)
 
         # Debug info
         processing_jobs[job_id]["debug_count_after"] = len(valid_tracks)
-        processing_jobs[job_id]["message"] = f"Found {len(valid_tracks)} unique visitors (BoT-SORT + max concurrent filtering)..."
+        processing_jobs[job_id]["message"] = f"Found {len(valid_tracks)} unique visitors (dedup + concurrent cap)..."
 
         # Generate events from valid track data with ReID for return visitors
         seen_pseudo_ids = set()
