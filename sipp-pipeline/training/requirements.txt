@@ -1,0 +1,15 @@
+# Auto-labeling (Grounding DINO)
+autodistill>=0.1.0
+autodistill-grounding-dino
+
+# Sliced inference for small objects
+sahi>=0.11.0
+
+# Core ML
+ultralytics>=8.1.0
+torch>=2.1.0
+torchvision>=0.16.0
+
+# Dataset handling
+Pillow>=10.0.0
+roboflow

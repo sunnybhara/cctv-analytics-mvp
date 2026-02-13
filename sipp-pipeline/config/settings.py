@@ -5,16 +5,32 @@ VIDEO_SOURCE = os.getenv("VIDEO_SOURCE", "")  # file path or rtsp:// URL
 CAMERA_ID = os.getenv("CAMERA_ID", "camera_01")
 
 # Detection
-YOLO_MODEL = os.getenv("YOLO_MODEL", "yolo11s.pt")  # stock COCO model
+# Stock COCO (Week 1): "yolo11s.pt"
+# Fine-tuned bar model (Week 2+): "yolo11s-bar.pt" (run training/train.py first)
+YOLO_MODEL = os.getenv("YOLO_MODEL", "yolo11s.pt")
 YOLO_CONF_THRESHOLD = float(os.getenv("YOLO_CONF_THRESHOLD", "0.25"))
 PERSON_TRACKER = "botsort.yaml"   # appearance-based, handles long occlusion
 OBJECT_TRACKER = "bytetrack.yaml" # motion-based, fast for drink objects
 
-# Object classes of interest (COCO class IDs)
-# 0=person, 39=bottle, 40=wine_glass, 41=cup, 42=fork, 43=knife
-PERSON_CLASS_ID = 0
-DRINK_CLASS_IDS = [39, 40, 41]  # bottle, wine_glass, cup
-DRINK_CLASS_NAMES = {39: "bottle", 40: "wine_glass", 41: "cup"}
+# COCO class IDs (stock model)
+COCO_PERSON_CLASS_ID = 0
+COCO_DRINK_CLASS_IDS = [39, 40, 41]  # bottle, wine_glass, cup
+COCO_DRINK_CLASS_NAMES = {39: "bottle", 40: "wine_glass", 41: "cup"}
+
+# Bar model class IDs (fine-tuned, from training/config.py FINAL_CLASSES)
+BAR_PERSON_CLASS_ID = 0
+BAR_DRINK_CLASS_IDS = [1, 2, 3, 4, 5, 6, 8, 9, 10]  # all glass + bottle types
+BAR_DRINK_CLASS_NAMES = {
+    1: "beer_glass", 2: "wine_glass", 3: "rocks_glass",
+    4: "shot_glass", 5: "cocktail_glass", 6: "pint_glass",
+    8: "liquor_bottle", 9: "beer_bottle", 10: "wine_bottle",
+}
+
+# Active config (switches based on YOLO_MODEL)
+USE_BAR_MODEL = "bar" in YOLO_MODEL
+PERSON_CLASS_ID = BAR_PERSON_CLASS_ID if USE_BAR_MODEL else COCO_PERSON_CLASS_ID
+DRINK_CLASS_IDS = BAR_DRINK_CLASS_IDS if USE_BAR_MODEL else COCO_DRINK_CLASS_IDS
+DRINK_CLASS_NAMES = BAR_DRINK_CLASS_NAMES if USE_BAR_MODEL else COCO_DRINK_CLASS_NAMES
 
 # Zones
 ZONES_FILE = os.getenv("ZONES_FILE", "config/zones.json")
