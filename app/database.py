@@ -11,7 +11,12 @@ import databases
 import sqlalchemy
 from sqlalchemy import func
 
-from app.config import DATABASE_URL
+from app.config import DATABASE_URL as _RAW_DB_URL
+
+# Handle Render's postgres:// prefix (needs postgresql://)
+DATABASE_URL = _RAW_DB_URL
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 database = databases.Database(DATABASE_URL)
 
