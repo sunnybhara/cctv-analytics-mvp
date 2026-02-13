@@ -7,6 +7,7 @@ YouTube and URL video downloading.
 from pathlib import Path
 
 from app.video.deps import load_video_deps, yt_dlp
+from app.config import YTDL_TIMEOUT_SECONDS
 
 
 def download_youtube_video(url: str, output_path: str) -> str:
@@ -20,6 +21,8 @@ def download_youtube_video(url: str, output_path: str) -> str:
         'quiet': True,
         'no_warnings': True,
         'merge_output_format': 'mp4',
+        'socket_timeout': 30,
+        'retries': 3,
     }
 
     with _yt_dlp.YoutubeDL(ydl_opts) as ydl:

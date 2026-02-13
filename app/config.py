@@ -17,6 +17,10 @@ CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost
 
 # Upload limits
 MAX_UPLOAD_SIZE_MB = int(os.getenv("MAX_UPLOAD_SIZE_MB", "500"))
+MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024
+
+# Download timeouts
+YTDL_TIMEOUT_SECONDS = int(os.getenv("YTDL_TIMEOUT_SECONDS", "120"))
 
 # Authentication
 AUTH_ENABLED = os.getenv("AUTH_ENABLED", "true").lower() == "true"

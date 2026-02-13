@@ -16,7 +16,7 @@ from fastapi import Depends, APIRouter, HTTPException, UploadFile, File, Form, B
 from app.auth import require_api_key
 from app import limiter
 
-from app.config import DATABASE_URL, ALLOWED_VIDEO_DOMAINS
+from app.config import DATABASE_URL, ALLOWED_VIDEO_DOMAINS, MAX_UPLOAD_SIZE_BYTES
 from app.database import database, venues
 from app.state import processing_jobs
 from app.video.deps import load_video_deps
@@ -150,16 +150,28 @@ async def process_upload(
     _api_key: str = Depends(require_api_key)
 ):
     """Process an uploaded video file."""
+    # Early content-length check
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_UPLOAD_SIZE_BYTES:
+        raise HTTPException(status_code=413, detail=f"File too large. Max size: {MAX_UPLOAD_SIZE_BYTES // (1024*1024)}MB")
+
     job_id = str(uuid.uuid4())[:8]
 
-    # Save uploaded file to temp location
+    # Save uploaded file with streaming size check
     temp_dir = tempfile.mkdtemp()
     safe_name = os.path.basename(file.filename or "video.mp4")
     temp_path = os.path.join(temp_dir, safe_name)
 
+    bytes_written = 0
     with open(temp_path, "wb") as f:
-        content = await file.read()
-        f.write(content)
+        while chunk := await file.read(1024 * 1024):
+            bytes_written += len(chunk)
+            if bytes_written > MAX_UPLOAD_SIZE_BYTES:
+                f.close()
+                os.remove(temp_path)
+                os.rmdir(temp_dir)
+                raise HTTPException(status_code=413, detail=f"File too large. Max size: {MAX_UPLOAD_SIZE_BYTES // (1024*1024)}MB")
+            f.write(chunk)
 
     processing_jobs[job_id] = {
         "status": "starting",
