@@ -2,7 +2,7 @@
 Database Setup
 ==============
 SQLAlchemy table definitions, async database connection, and engine.
-All 7 tables defined here as module-level objects importable by routers and workers.
+All 5 tables defined here as module-level objects importable by routers and workers.
 """
 
 from datetime import datetime
@@ -57,26 +57,6 @@ venues = sqlalchemy.Table(
     sqlalchemy.Column("venue_type", sqlalchemy.String(50), nullable=True),
 )
 
-# Daily aggregates for fast queries
-daily_stats = sqlalchemy.Table(
-    "daily_stats",
-    metadata,
-    sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
-    sqlalchemy.Column("venue_id", sqlalchemy.String(50), index=True),
-    sqlalchemy.Column("date", sqlalchemy.Date, index=True),
-    sqlalchemy.Column("total_visitors", sqlalchemy.Integer, default=0),
-    sqlalchemy.Column("unique_visitors", sqlalchemy.Integer, default=0),
-    sqlalchemy.Column("repeat_visitors", sqlalchemy.Integer, default=0),
-    sqlalchemy.Column("avg_dwell_seconds", sqlalchemy.Float, default=0),
-    sqlalchemy.Column("peak_hour", sqlalchemy.Integer),
-    sqlalchemy.Column("gender_male", sqlalchemy.Integer, default=0),
-    sqlalchemy.Column("gender_female", sqlalchemy.Integer, default=0),
-    sqlalchemy.Column("age_20s", sqlalchemy.Integer, default=0),
-    sqlalchemy.Column("age_30s", sqlalchemy.Integer, default=0),
-    sqlalchemy.Column("age_40s", sqlalchemy.Integer, default=0),
-    sqlalchemy.Column("age_50plus", sqlalchemy.Integer, default=0),
-)
-
 # Jobs table - tracks video processing queue
 jobs = sqlalchemy.Table(
     "jobs",
@@ -129,20 +109,6 @@ visitor_embeddings = sqlalchemy.Table(
     sqlalchemy.Column("age_bracket", sqlalchemy.String(10), nullable=True),
     sqlalchemy.Column("gender", sqlalchemy.String(1), nullable=True),
     sqlalchemy.Column("quality_score", sqlalchemy.Float, default=0),
-)
-
-# Visitor sessions - tracks each visit by a known visitor
-visitor_sessions = sqlalchemy.Table(
-    "visitor_sessions",
-    metadata,
-    sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
-    sqlalchemy.Column("visitor_id", sqlalchemy.String(32), index=True),
-    sqlalchemy.Column("venue_id", sqlalchemy.String(50), index=True),
-    sqlalchemy.Column("session_date", sqlalchemy.Date, index=True),
-    sqlalchemy.Column("entry_time", sqlalchemy.DateTime),
-    sqlalchemy.Column("exit_time", sqlalchemy.DateTime, nullable=True),
-    sqlalchemy.Column("dwell_seconds", sqlalchemy.Float, default=0),
-    sqlalchemy.Column("zones_visited", sqlalchemy.JSON, default=list),
 )
 
 engine = sqlalchemy.create_engine(
