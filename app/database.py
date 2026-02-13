@@ -13,10 +13,12 @@ from sqlalchemy import func
 
 from app.config import DATABASE_URL as _RAW_DB_URL
 
-# Handle Render's postgres:// prefix (needs postgresql://)
+# Force psycopg3 dialect for Python 3.13 compatibility
 DATABASE_URL = _RAW_DB_URL
 if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
+elif DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
 database = databases.Database(DATABASE_URL)
 
