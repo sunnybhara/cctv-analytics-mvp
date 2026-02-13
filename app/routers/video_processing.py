@@ -12,8 +12,9 @@ import secrets
 from urllib.parse import urlparse
 
 import sqlalchemy
-from fastapi import Depends, APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import Depends, APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
 from app.auth import require_api_key
+from app import limiter
 
 from app.config import DATABASE_URL, ALLOWED_VIDEO_DOMAINS
 from app.database import database, venues
@@ -26,8 +27,9 @@ from app.video.helpers import lat_long_to_h3
 router = APIRouter()
 
 
+@limiter.limit("10/minute")
 @router.post("/process/youtube")
-async def process_youtube(data: dict, background_tasks: BackgroundTasks, _api_key: str = Depends(require_api_key)):
+async def process_youtube(request: Request, data: dict, background_tasks: BackgroundTasks, _api_key: str = Depends(require_api_key)):
     """Process a YouTube video with optional venue location."""
     url = data.get("url")
     venue_id = data.get("venue_id", "demo_venue")
@@ -139,8 +141,10 @@ async def process_youtube(data: dict, background_tasks: BackgroundTasks, _api_ke
     return {"job_id": job_id, "status": "started"}
 
 
+@limiter.limit("10/minute")
 @router.post("/process/upload")
 async def process_upload(
+    request: Request,
     file: UploadFile = File(...),
     venue_id: str = Form(default="demo_venue"),
     _api_key: str = Depends(require_api_key)

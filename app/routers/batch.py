@@ -13,8 +13,9 @@ from urllib.parse import urlparse
 
 import sqlalchemy
 from sqlalchemy import func
-from fastapi import Depends, APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import Depends, APIRouter, HTTPException, UploadFile, File, Form, Request
 from app.auth import require_api_key
+from app import limiter
 
 from app.config import ALLOWED_VIDEO_DOMAINS
 from app.database import database, jobs
@@ -25,8 +26,10 @@ from app.video.queue import create_job_in_db, ensure_queue_processor_running
 router = APIRouter()
 
 
+@limiter.limit("10/minute")
 @router.post("/api/batch/upload")
 async def batch_upload(
+    request: Request,
     files: List[UploadFile] = File(...),
     venue_id: str = Form(default="demo_venue"),
     priority: int = Form(default=0),
@@ -74,8 +77,10 @@ async def batch_upload(
         "jobs": created_jobs
     }
 
+@limiter.limit("10/minute")
 @router.post("/api/batch/url")
 async def batch_url(
+    request: Request,
     urls: List[str],
     venue_id: str = "demo_venue",
     priority: int = 0,
