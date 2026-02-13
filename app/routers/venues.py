@@ -10,7 +10,7 @@ from datetime import datetime
 import sqlalchemy
 from fastapi import APIRouter, HTTPException, Query
 
-from app.database import database, venues
+from app.database import database, venues, events, alerts, jobs, visitor_embeddings
 from app.responses import success_response
 from app.schemas import VenueCreate
 from app.video.helpers import lat_long_to_h3
@@ -89,3 +89,23 @@ async def list_venues(
         "limit": limit, "offset": offset, "total": total,
         "has_more": offset + limit < total
     })
+
+
+@router.delete("/venues/{venue_id}")
+async def delete_venue(venue_id: str):
+    """Delete a venue and all its associated data."""
+    # Check venue exists
+    existing = await database.fetch_one(
+        sqlalchemy.select(venues.c.id).where(venues.c.id == venue_id)
+    )
+    if not existing:
+        raise HTTPException(status_code=404, detail="Venue not found")
+
+    # Delete associated data
+    await database.execute(events.delete().where(events.c.venue_id == venue_id))
+    await database.execute(alerts.delete().where(alerts.c.venue_id == venue_id))
+    await database.execute(jobs.delete().where(jobs.c.venue_id == venue_id))
+    await database.execute(visitor_embeddings.delete().where(visitor_embeddings.c.venue_id == venue_id))
+    await database.execute(venues.delete().where(venues.c.id == venue_id))
+
+    return success_response({"message": f"Venue '{venue_id}' and all associated data deleted"})

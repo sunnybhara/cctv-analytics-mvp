@@ -510,6 +510,9 @@ async def analytics_home():
             .btn:hover { background: #2563eb; }
             .btn-secondary { background: #333; }
             .btn-secondary:hover { background: #444; }
+            .btn-danger { background: #dc2626; }
+            .btn-danger:hover { background: #b91c1c; }
+            .btn-sm { padding: 6px 12px; font-size: 12px; flex: none; }
             .empty-state {
                 text-align: center;
                 padding: 80px 20px;
@@ -568,15 +571,32 @@ async def analytics_home():
         </div>
 
         <script>
+            async function deleteVenue(venueId) {
+                if (!confirm(`Delete venue "${venueId}" and ALL its data (events, visitors, jobs, alerts)? This cannot be undone.`)) return;
+                try {
+                    const res = await fetch(`/venues/${venueId}`, { method: 'DELETE' });
+                    if (res.ok) {
+                        loadVenues();
+                    } else {
+                        const err = await res.json();
+                        alert('Delete failed: ' + (err.detail || 'Unknown error'));
+                    }
+                } catch (e) {
+                    alert('Delete failed: ' + e.message);
+                }
+            }
+
             async function loadVenues() {
                 try {
                     const response = await fetch('/venues');
-                    const venues = await response.json();
+                    const body = await response.json();
+                    const venues = body.data || body;
 
                     document.getElementById('loading').style.display = 'none';
 
-                    if (venues.length === 0) {
+                    if (!venues || venues.length === 0) {
                         document.getElementById('empty-state').style.display = 'block';
+                        document.getElementById('venues-grid').style.display = 'none';
                         return;
                     }
 
@@ -586,12 +606,13 @@ async def analytics_home():
                         try {
                             const statsRes = await fetch(`/analytics/${venue.id}?days=7`);
                             if (statsRes.ok) {
-                                stats = await statsRes.json();
+                                const statsBody = await statsRes.json();
+                                stats = statsBody.data || statsBody;
                             }
                         } catch (e) {}
 
                         return `
-                            <div class="venue-card">
+                            <div class="venue-card" id="card-${venue.id}">
                                 <h3>
                                     ${venue.name || venue.id}
                                     <span class="venue-id">${venue.id}</span>
@@ -613,6 +634,7 @@ async def analytics_home():
                                 <div class="venue-actions">
                                     <a href="/analytics-dashboard/${venue.id}" class="btn">View Dashboard</a>
                                     <a href="/report/${venue.id}" class="btn btn-secondary">Report</a>
+                                    <button onclick="deleteVenue('${venue.id}')" class="btn btn-danger btn-sm">Delete</button>
                                 </div>
                             </div>
                         `;
@@ -620,6 +642,7 @@ async def analytics_home():
 
                     document.getElementById('venues-grid').innerHTML = venueCards.join('');
                     document.getElementById('venues-grid').style.display = 'grid';
+                    document.getElementById('empty-state').style.display = 'none';
                 } catch (error) {
                     document.getElementById('loading').innerHTML = 'Error loading venues: ' + error.message;
                 }
