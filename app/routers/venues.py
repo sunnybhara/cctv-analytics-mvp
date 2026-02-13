@@ -8,7 +8,7 @@ import secrets
 from datetime import datetime
 
 import sqlalchemy
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from app.database import database, venues
 from app.responses import success_response
@@ -56,15 +56,25 @@ async def create_venue(venue: VenueCreate):
 
 
 @router.get("/venues")
-async def list_venues():
+async def list_venues(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0)
+):
     """List all venues with geo info (without API keys)."""
+    from sqlalchemy import func
+
+    # Get total count
+    total = await database.fetch_val(
+        sqlalchemy.select(func.count()).select_from(venues)
+    ) or 0
+
     query = sqlalchemy.select(
         venues.c.id, venues.c.name, venues.c.created_at,
         venues.c.latitude, venues.c.longitude, venues.c.h3_zone,
         venues.c.city, venues.c.country, venues.c.venue_type
-    )
+    ).limit(limit).offset(offset)
     rows = await database.fetch_all(query)
-    return success_response([{
+    items = [{
         "id": r["id"],
         "name": r["name"],
         "created_at": r["created_at"].isoformat() if r["created_at"] else None,
@@ -74,4 +84,8 @@ async def list_venues():
         "city": r["city"],
         "country": r["country"],
         "venue_type": r["venue_type"]
-    } for r in rows])
+    } for r in rows]
+    return success_response(items, pagination={
+        "limit": limit, "offset": offset, "total": total,
+        "has_more": offset + limit < total
+    })

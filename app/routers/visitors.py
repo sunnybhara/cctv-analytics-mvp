@@ -7,7 +7,7 @@ Known visitors, loyalty scoring, visit history, and returning visitor analytics.
 from datetime import datetime, timedelta
 
 import sqlalchemy
-from fastapi import Depends, APIRouter, HTTPException
+from fastapi import Depends, APIRouter, HTTPException, Query
 from app.auth import require_api_key
 from app.responses import success_response
 
@@ -42,7 +42,8 @@ def calculate_loyalty_score(visitor_row) -> str:
 @router.get("/api/visitors/{venue_id}")
 async def get_known_visitors(
     venue_id: str,
-    limit: int = 100,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     sort_by: str = "last_seen",  # last_seen, first_seen, visit_count
     _api_key: str = Depends(require_api_key)
 ):
@@ -50,6 +51,15 @@ async def get_known_visitors(
     Get all known visitors for a venue.
     These are visitors with face embeddings that can be tracked across sessions.
     """
+    from sqlalchemy import func
+
+    # Get total count
+    total = await database.fetch_val(
+        sqlalchemy.select(func.count()).select_from(visitor_embeddings).where(
+            visitor_embeddings.c.venue_id == venue_id
+        )
+    ) or 0
+
     # Build sort order
     if sort_by == "first_seen":
         order = visitor_embeddings.c.first_seen.desc()
@@ -69,7 +79,7 @@ async def get_known_visitors(
         visitor_embeddings.c.quality_score
     ).where(
         visitor_embeddings.c.venue_id == venue_id
-    ).order_by(order).limit(limit)
+    ).order_by(order).limit(limit).offset(offset)
 
     rows = await database.fetch_all(query)
 
@@ -89,8 +99,11 @@ async def get_known_visitors(
 
     return success_response({
         "venue_id": venue_id,
-        "total_known_visitors": len(visitors),
+        "total_known_visitors": total,
         "visitors": visitors
+    }, pagination={
+        "limit": limit, "offset": offset, "total": total,
+        "has_more": offset + limit < total
     })
 
 

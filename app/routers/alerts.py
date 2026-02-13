@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict
 
 import sqlalchemy
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from app.auth import require_api_key
 
 from app.database import database, events, alerts
@@ -104,36 +104,49 @@ async def list_alerts(
     venue_id: Optional[str] = None,
     severity: Optional[str] = None,
     acknowledged: Optional[bool] = None,
-    limit: int = 50,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     _api_key: str = Depends(require_api_key)
 ):
     """List alerts, optionally filtered."""
-    query = sqlalchemy.select(alerts).order_by(alerts.c.created_at.desc()).limit(limit)
+    from sqlalchemy import func
+
+    # Build base filter
+    count_query = sqlalchemy.select(func.count()).select_from(alerts)
+    query = sqlalchemy.select(alerts).order_by(alerts.c.created_at.desc())
 
     if venue_id:
         query = query.where(alerts.c.venue_id == venue_id)
+        count_query = count_query.where(alerts.c.venue_id == venue_id)
     if severity:
         query = query.where(alerts.c.severity == severity)
+        count_query = count_query.where(alerts.c.severity == severity)
     if acknowledged is not None:
         query = query.where(alerts.c.acknowledged == acknowledged)
+        count_query = count_query.where(alerts.c.acknowledged == acknowledged)
 
+    total = await database.fetch_val(count_query) or 0
+    query = query.limit(limit).offset(offset)
     rows = await database.fetch_all(query)
 
-    return success_response({
-        "alerts": [
-            {
-                "id": r["id"],
-                "venue_id": r["venue_id"],
-                "alert_type": r["alert_type"],
-                "severity": r["severity"],
-                "title": r["title"],
-                "message": r["message"],
-                "data": r["data"],
-                "created_at": r["created_at"].isoformat() if r["created_at"] else None,
-                "acknowledged": r["acknowledged"]
-            }
-            for r in rows
-        ]
+    items = [
+        {
+            "id": r["id"],
+            "venue_id": r["venue_id"],
+            "alert_type": r["alert_type"],
+            "severity": r["severity"],
+            "title": r["title"],
+            "message": r["message"],
+            "data": r["data"],
+            "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+            "acknowledged": r["acknowledged"]
+        }
+        for r in rows
+    ]
+
+    return success_response({"alerts": items}, pagination={
+        "limit": limit, "offset": offset, "total": total,
+        "has_more": offset + limit < total
     })
 
 

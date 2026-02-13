@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 
 import sqlalchemy
 from sqlalchemy import func
-from fastapi import Depends, APIRouter, HTTPException, UploadFile, File, Form, Request
+from fastapi import Depends, APIRouter, HTTPException, UploadFile, File, Form, Request, Query
 from app.auth import require_api_key
 from app.responses import success_response
 from app import limiter
@@ -177,37 +177,46 @@ async def batch_url(
 async def list_jobs(
     venue_id: Optional[str] = None,
     status: Optional[str] = None,
-    limit: int = 50,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     _api_key: str = Depends(require_api_key)
 ):
     """
     List all jobs, optionally filtered by venue or status.
     """
-    query = sqlalchemy.select(jobs).order_by(jobs.c.created_at.desc()).limit(limit)
+    count_query = sqlalchemy.select(func.count()).select_from(jobs)
+    query = sqlalchemy.select(jobs).order_by(jobs.c.created_at.desc())
 
     if venue_id:
         query = query.where(jobs.c.venue_id == venue_id)
+        count_query = count_query.where(jobs.c.venue_id == venue_id)
     if status:
         query = query.where(jobs.c.status == status)
+        count_query = count_query.where(jobs.c.status == status)
 
+    total = await database.fetch_val(count_query) or 0
+    query = query.limit(limit).offset(offset)
     rows = await database.fetch_all(query)
 
-    return success_response({
-        "jobs": [
-            {
-                "id": row["id"],
-                "venue_id": row["venue_id"],
-                "status": row["status"],
-                "video_name": row["video_name"],
-                "created_at": row["created_at"].isoformat() if row["created_at"] else None,
-                "started_at": row["started_at"].isoformat() if row["started_at"] else None,
-                "completed_at": row["completed_at"].isoformat() if row["completed_at"] else None,
-                "progress": row["progress"],
-                "visitors_detected": row["visitors_detected"],
-                "error_message": row["error_message"],
-            }
-            for row in rows
-        ]
+    items = [
+        {
+            "id": row["id"],
+            "venue_id": row["venue_id"],
+            "status": row["status"],
+            "video_name": row["video_name"],
+            "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+            "started_at": row["started_at"].isoformat() if row["started_at"] else None,
+            "completed_at": row["completed_at"].isoformat() if row["completed_at"] else None,
+            "progress": row["progress"],
+            "visitors_detected": row["visitors_detected"],
+            "error_message": row["error_message"],
+        }
+        for row in rows
+    ]
+
+    return success_response({"jobs": items}, pagination={
+        "limit": limit, "offset": offset, "total": total,
+        "has_more": offset + limit < total
     })
 
 @router.get("/api/batch/jobs/{job_id}")
