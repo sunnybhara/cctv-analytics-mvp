@@ -3588,9 +3588,9 @@ svg{display:block;margin:0 auto}
 <line x1="1180" y1="515" x2="1228" y2="515" stroke="#334155" stroke-width="1.2" marker-end="url(#a)"/>
 
 <!-- ═══ FEEDBACK: MODEL ═══ -->
-<rect x="30" y="600" width="1490" height="2" rx="1" fill="#3b82f6" opacity="0.15"/>
+<rect x="30" y="600" width="1490" height="1" rx="1" fill="#3b82f6" opacity="0.08"/>
 <path d="M1365 538 L1365 616 Q1365 626 1350 626 L170 626 Q155 626 155 616 L155 348"
-      fill="none" stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="5,4" opacity="0.6" marker-end="url(#ab)"/>
+      fill="none" stroke="#3b82f6" stroke-width="1" stroke-dasharray="5,4" opacity="0.25" marker-end="url(#ab)"/>
 <rect x="540" y="618" width="440" height="16" rx="8" fill="#060910"/>
 <text x="760" y="630" text-anchor="middle" fill="#3b82f6" font-size="9" font-weight="500" opacity="0.8" letter-spacing="0.5">yolo11s-bar.pt auto-switches into DualTracker via USE_BAR_MODEL</text>
 
@@ -3616,9 +3616,9 @@ svg{display:block;margin:0 auto}
 <rect class="n" data-id="test-mvp" x="30" y="772" width="250" height="36" rx="6" fill="#071207" stroke="#166534" stroke-width="1"/>
 <text x="155" y="795" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">MVP: 108 tests</text>
 <rect class="n" data-id="test-w1" x="330" y="772" width="250" height="36" rx="6" fill="#071207" stroke="#166534" stroke-width="1"/>
-<text x="455" y="795" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">Week 1: 85 tests</text>
+<text x="455" y="795" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">SIPP Pipeline: 85 tests</text>
 <rect class="n" data-id="test-w2" x="630" y="772" width="250" height="36" rx="6" fill="#071207" stroke="#166534" stroke-width="1"/>
-<text x="755" y="795" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">Week 2: 68 tests</text>
+<text x="755" y="795" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">Training: 68 tests</text>
 <rect class="n" data-id="test-sim" x="930" y="772" width="250" height="36" rx="6" fill="#071207" stroke="#166534" stroke-width="1"/>
 <text x="1055" y="795" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">Chaos Sim: 37 tests</text>
 <rect class="n" data-id="test-prod" x="1230" y="772" width="270" height="36" rx="6" fill="#071207" stroke="#166534" stroke-width="1"/>
