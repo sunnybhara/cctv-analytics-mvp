@@ -93,15 +93,8 @@ async def list_venues(
 
 @router.delete("/venues/{venue_id}")
 async def delete_venue(venue_id: str):
-    """Delete a venue and all its associated data."""
-    # Check venue exists
-    existing = await database.fetch_one(
-        sqlalchemy.select(venues.c.id).where(venues.c.id == venue_id)
-    )
-    if not existing:
-        raise HTTPException(status_code=404, detail="Venue not found")
-
-    # Delete associated data
+    """Delete a venue and all its associated data (including orphaned records)."""
+    # Always clean associated data even if venue row is missing
     await database.execute(events.delete().where(events.c.venue_id == venue_id))
     await database.execute(alerts.delete().where(alerts.c.venue_id == venue_id))
     await database.execute(jobs.delete().where(jobs.c.venue_id == venue_id))

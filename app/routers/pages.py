@@ -306,12 +306,14 @@ async def root():
                 try {
                     // Load venues count
                     const venuesResp = await fetch('/venues');
-                    const venues = await venuesResp.json();
+                    const venuesRaw = await venuesResp.json();
+                    const venues = venuesRaw.data || venuesRaw;
                     document.getElementById('stat-venues').textContent = venues.length;
 
                     // Load batch stats
                     const batchResp = await fetch('/api/batch/stats');
-                    const batch = await batchResp.json();
+                    const batchRaw = await batchResp.json();
+                    const batch = batchRaw.data || batchRaw;
                     document.getElementById('stat-videos').textContent = batch.queue.completed;
                     document.getElementById('stat-queue').textContent = batch.queue.pending + batch.queue.processing;
                     document.getElementById('stat-visitors').textContent = batch.total_visitors_detected.toLocaleString();
@@ -324,7 +326,8 @@ async def root():
             async function loadActivity() {
                 try {
                     const resp = await fetch('/api/batch/jobs?limit=10');
-                    const data = await resp.json();
+                    const raw = await resp.json();
+                    const data = raw.data || raw;
 
                     const list = document.getElementById('activity-list');
 
@@ -1041,7 +1044,8 @@ async def process_page():
 
                 try {
                     const response = await fetch('/process/status/' + currentJobId);
-                    const data = await response.json();
+                    const raw = await response.json();
+                    const data = raw.data || raw;
 
                     if (data.status === 'processing') {
                         const percent = data.frames_to_process > 0
@@ -1102,13 +1106,14 @@ async def process_page():
                         })
                     });
 
-                    const data = await response.json();
+                    const raw = await response.json();
+                    const data = raw.data || raw;
 
                     if (data.job_id) {
                         currentJobId = data.job_id;
                         statusInterval = setInterval(checkStatus, 1000);
                     } else {
-                        showResult(false, data.detail || 'Failed to start processing');
+                        showResult(false, data.detail || raw.message || 'Failed to start processing');
                     }
                 } catch (e) {
                     showResult(false, 'Error: ' + e.message);
@@ -1138,14 +1143,15 @@ async def process_page():
                         body: formData
                     });
 
-                    const data = await response.json();
+                    const raw = await response.json();
+                    const data = raw.data || raw;
 
                     if (data.job_id) {
                         currentJobId = data.job_id;
                         updateProgress(5, 'Processing started...');
                         statusInterval = setInterval(checkStatus, 1000);
                     } else {
-                        showResult(false, data.detail || 'Failed to start processing');
+                        showResult(false, data.detail || raw.message || 'Failed to start processing');
                     }
                 } catch (e) {
                     showResult(false, 'Error: ' + e.message);
@@ -1481,8 +1487,10 @@ async def dashboard(venue_id: str):
                         fetch(`/analytics/${{venueId}}/hourly`)
                     ]);
 
-                    const stats = await statsRes.json();
-                    const hourly = await hourlyRes.json();
+                    const statsRaw = await statsRes.json();
+                    const stats = statsRaw.data || statsRaw;
+                    const hourlyRaw = await hourlyRes.json();
+                    const hourly = hourlyRaw.data || hourlyRaw;
 
                     document.getElementById('loading').style.display = 'none';
                     document.getElementById('dashboard').style.display = 'block';
@@ -2166,14 +2174,15 @@ async def analytics_dashboard(venue_id: str):
                 currentDays = parseInt(days);
 
                 try {{
+                    const unwrap = r => r.json().then(j => j.data || j);
                     const [summary, hourly, demographics, zones, behavior, behaviorHourly, heatmap] = await Promise.all([
-                        fetch(`/analytics/${{venueId}}/summary?days=${{days}}`).then(r => r.json()),
-                        fetch(`/analytics/${{venueId}}/hourly`).then(r => r.json()),
-                        fetch(`/analytics/${{venueId}}/demographics?days=${{days}}`).then(r => r.json()),
-                        fetch(`/analytics/${{venueId}}/zones?days=${{days}}`).then(r => r.json()),
-                        fetch(`/analytics/${{venueId}}/behavior?days=${{days}}`).then(r => r.json()),
-                        fetch(`/analytics/${{venueId}}/behavior/hourly?days=${{days}}`).then(r => r.json()),
-                        fetch(`/analytics/${{venueId}}/heatmap?weeks=${{Math.ceil(days/7)}}`).then(r => r.json())
+                        fetch(`/analytics/${{venueId}}/summary?days=${{days}}`).then(unwrap),
+                        fetch(`/analytics/${{venueId}}/hourly`).then(unwrap),
+                        fetch(`/analytics/${{venueId}}/demographics?days=${{days}}`).then(unwrap),
+                        fetch(`/analytics/${{venueId}}/zones?days=${{days}}`).then(unwrap),
+                        fetch(`/analytics/${{venueId}}/behavior?days=${{days}}`).then(unwrap),
+                        fetch(`/analytics/${{venueId}}/behavior/hourly?days=${{days}}`).then(unwrap),
+                        fetch(`/analytics/${{venueId}}/heatmap?weeks=${{Math.ceil(days/7)}}`).then(unwrap)
                     ]);
 
                     allData = {{ summary, hourly, demographics, zones, behavior, behaviorHourly, heatmap }};
@@ -2952,7 +2961,8 @@ async def uploads_dashboard():
                         method: 'POST',
                         body: formData
                     });
-                    const data = await resp.json();
+                    const raw = await resp.json();
+                    const data = raw.data || raw;
 
                     if (resp.ok) {
                         alert(`Queued ${data.jobs.length} videos for processing!`);
@@ -2976,7 +2986,8 @@ async def uploads_dashboard():
             async function loadStats() {
                 try {
                     const resp = await fetch('/api/batch/stats');
-                    const data = await resp.json();
+                    const raw = await resp.json();
+                    const data = raw.data || raw;
 
                     document.getElementById('stat-pending').textContent = data.queue.pending;
                     document.getElementById('stat-processing').textContent = data.queue.processing;
@@ -2992,7 +3003,8 @@ async def uploads_dashboard():
             async function loadJobs() {
                 try {
                     const resp = await fetch('/api/batch/jobs?limit=50');
-                    const data = await resp.json();
+                    const raw = await resp.json();
+                    const data = raw.data || raw;
 
                     const tbody = document.getElementById('jobs-tbody');
 
@@ -3260,7 +3272,8 @@ async def map_view():
             async function loadVenues() {
                 try {
                     const response = await fetch('/api/map/venues');
-                    const data = await response.json();
+                    const raw = await response.json();
+                    const data = raw.data || raw;
 
                     // Update stats
                     document.getElementById('total-venues').textContent = data.venues.length;

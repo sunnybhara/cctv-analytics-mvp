@@ -60,43 +60,49 @@ async def process_youtube(request: Request, data: dict, background_tasks: Backgr
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid URL format")
 
-    # Create or update venue with location if provided
+    # Ensure venue row always exists (so delete can find it later)
+    h3_zone = None
     if latitude is not None and longitude is not None:
         h3_zone = lat_long_to_h3(latitude, longitude)
 
-        # Check if venue exists
-        existing = await database.fetch_one(
-            sqlalchemy.select(venues.c.id).where(venues.c.id == venue_id)
-        )
+    existing = await database.fetch_one(
+        sqlalchemy.select(venues.c.id).where(venues.c.id == venue_id)
+    )
 
-        if existing:
-            # Update existing venue
+    if existing:
+        # Update existing venue with any new data
+        update_vals = {}
+        if venue_name:
+            update_vals["name"] = venue_name
+        if latitude is not None:
+            update_vals["latitude"] = latitude
+            update_vals["longitude"] = longitude
+            update_vals["h3_zone"] = h3_zone
+        if city:
+            update_vals["city"] = city
+        if country:
+            update_vals["country"] = country
+        if venue_type:
+            update_vals["venue_type"] = venue_type
+        if update_vals:
             await database.execute(
-                venues.update().where(venues.c.id == venue_id).values(
-                    name=venue_name or existing.get("name"),
-                    latitude=latitude,
-                    longitude=longitude,
-                    h3_zone=h3_zone,
-                    city=city,
-                    country=country,
-                    venue_type=venue_type
-                )
+                venues.update().where(venues.c.id == venue_id).values(**update_vals)
             )
-        else:
-            # Create new venue
-            await database.execute(
-                venues.insert().values(
-                    id=venue_id,
-                    name=venue_name or venue_id,
-                    api_key=secrets.token_hex(32),
-                    latitude=latitude,
-                    longitude=longitude,
-                    h3_zone=h3_zone,
-                    city=city,
-                    country=country,
-                    venue_type=venue_type
-                )
+    else:
+        # Always create venue row so data is never orphaned
+        await database.execute(
+            venues.insert().values(
+                id=venue_id,
+                name=venue_name or venue_id,
+                api_key=secrets.token_hex(32),
+                latitude=latitude,
+                longitude=longitude,
+                h3_zone=h3_zone,
+                city=city,
+                country=country,
+                venue_type=venue_type
             )
+        )
 
     job_id = str(uuid.uuid4())[:8]
 
