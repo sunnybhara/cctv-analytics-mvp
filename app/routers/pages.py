@@ -3371,267 +3371,268 @@ _ARCHITECTURE_HTML = r"""
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0a0a0a;color:#e0e0e0;min-height:100vh}
-nav{background:#111;border-bottom:1px solid #222;padding:0 20px;position:sticky;top:0;z-index:100}
-nav .ni{max-width:1600px;margin:0 auto;display:flex;align-items:center;gap:40px;height:60px}
-nav .logo{font-size:20px;font-weight:bold;color:#fff;text-decoration:none}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#060910;color:#e0e0e0;min-height:100vh}
+nav{background:#0c0f18;border-bottom:1px solid #1a1f2e;padding:0 20px;position:sticky;top:0;z-index:100;backdrop-filter:blur(12px)}
+nav .ni{max-width:1600px;margin:0 auto;display:flex;align-items:center;gap:40px;height:56px}
+nav .logo{font-size:18px;font-weight:700;color:#fff;text-decoration:none;letter-spacing:-0.5px}
 nav .logo span{color:#3b82f6}
-nav .nl{display:flex;gap:30px}
-nav a{color:#888;text-decoration:none;font-size:14px;transition:color .2s}
-nav a:hover{color:#fff}
+nav .nl{display:flex;gap:24px}
+nav a{color:#64748b;text-decoration:none;font-size:13px;font-weight:500;transition:color .2s}
+nav a:hover{color:#e2e8f0}
 nav a.active{color:#3b82f6}
-.ph{text-align:center;padding:30px 20px 10px}
-.ph h1{font-size:28px;color:#fff}
-.ph p{color:#888;margin-top:6px;font-size:14px}
-.leg{display:flex;justify-content:center;gap:24px;padding:12px 20px;flex-wrap:wrap}
-.li{display:flex;align-items:center;gap:8px;font-size:12px;color:#aaa}
-.ld{width:14px;height:14px;border-radius:3px}
-.ac{max-width:1600px;margin:0 auto;padding:10px 20px 40px;overflow-x:auto}
+.hero{text-align:center;padding:32px 20px 8px}
+.hero h1{font-size:24px;font-weight:700;color:#f1f5f9;letter-spacing:-0.5px}
+.hero p{color:#64748b;margin-top:4px;font-size:13px}
+.legend{display:flex;justify-content:center;gap:20px;padding:12px 20px 16px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8;font-weight:500;text-transform:uppercase;letter-spacing:0.5px}
+.legend-dot{width:10px;height:10px;border-radius:2px}
+.canvas{max-width:1560px;margin:0 auto;padding:0 20px 32px;overflow-x:auto}
 svg{display:block;margin:0 auto}
-.tt{position:fixed;background:#1a1a2e;border:1px solid #3b82f6;border-radius:8px;padding:12px 16px;font-size:13px;color:#e0e0e0;max-width:320px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:200;line-height:1.5}
-.tt .t1{font-weight:600;color:#fff;margin-bottom:4px;font-size:14px}
-.tt .t2{color:#3b82f6;font-family:monospace;font-size:11px}
-.dp{max-width:1600px;margin:0 auto;padding:0 20px 40px}
-.dc{background:#111;border:1px solid #222;border-radius:8px;padding:20px;display:none}
-.dc.a{display:block}
-.dc h3{color:#3b82f6;margin-bottom:8px}
+.tooltip{position:fixed;background:#0f172a;border:1px solid rgba(59,130,246,0.3);border-radius:10px;padding:14px 18px;font-size:13px;color:#cbd5e1;max-width:340px;pointer-events:none;opacity:0;transition:opacity .12s;z-index:200;line-height:1.6;box-shadow:0 8px 32px rgba(0,0,0,0.5)}
+.tooltip .tt-title{font-weight:600;color:#f1f5f9;margin-bottom:2px;font-size:14px}
+.tooltip .tt-file{color:#60a5fa;font-family:'SF Mono',Monaco,monospace;font-size:11px}
+.tooltip .tt-desc{margin-top:8px;border-top:1px solid #1e293b;padding-top:8px}
+.detail-panel{max-width:1560px;margin:0 auto;padding:0 20px 40px}
+.detail-card{background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:24px;display:none;transition:all .2s}
+.detail-card.active{display:block}
+.detail-card h3{color:#60a5fa;margin-bottom:4px;font-size:16px}
+/* SVG node hover */
+.n{transition:filter .15s,transform .15s}
+.n:hover{filter:brightness(1.3) drop-shadow(0 0 8px rgba(255,255,255,0.1))}
 </style>
 </head>
 <body>
 <nav><div class="ni">
-<a href="/" class="logo">SIPP <span>Analytics</span></a>
+<a href="/" class="logo">CCTV<span>Analytics</span></a>
 <div class="nl">
 <a href="/">Home</a><a href="/analytics">Analytics</a><a href="/process">Process Video</a>
 <a href="/uploads">Batch Upload</a><a href="/map">Map</a>
 <a href="/architecture" class="active">Architecture</a><a href="/docs">API Docs</a>
 </div></div></nav>
 
-<div class="ph"><h1>System Architecture</h1><p>Hover nodes for details &middot; Click for full description</p></div>
-<div class="leg">
-<div class="li"><div class="ld" style="background:#3b82f6"></div>Input</div>
-<div class="li"><div class="ld" style="background:#8b5cf6"></div>Processing</div>
-<div class="li"><div class="ld" style="background:#f59e0b"></div>ML / AI</div>
-<div class="li"><div class="ld" style="background:#10b981"></div>Learning</div>
-<div class="li"><div class="ld" style="background:#ef4444"></div>Output</div>
-<div class="li"><div class="ld" style="background:#64748b"></div>Storage</div>
+<div class="hero"><h1>System Architecture</h1><p>Hover for details. Click any node for full description.</p></div>
+<div class="legend">
+<div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>Input</div>
+<div class="legend-item"><div class="legend-dot" style="background:#8b5cf6"></div>Processing</div>
+<div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>ML / AI</div>
+<div class="legend-item"><div class="legend-dot" style="background:#10b981"></div>Learning</div>
+<div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>Output</div>
+<div class="legend-item"><div class="legend-dot" style="background:#64748b"></div>Storage</div>
 </div>
 
-<div class="ac">
-<svg viewBox="0 0 1520 1020" width="1520" height="1020" xmlns="http://www.w3.org/2000/svg">
+<div class="canvas">
+<svg viewBox="0 0 1540 960" width="1540" height="960" xmlns="http://www.w3.org/2000/svg">
 <defs>
-<marker id="a" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="8" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 3L0 6z" fill="#555"/></marker>
-<marker id="ab" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="8" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 3L0 6z" fill="#3b82f6"/></marker>
+<marker id="a" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="7" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 3L0 6z" fill="#334155"/></marker>
+<marker id="ab" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="7" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 3L0 6z" fill="#3b82f6"/></marker>
+<marker id="ag" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="7" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 3L0 6z" fill="#10b981"/></marker>
+<linearGradient id="lane-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0d1117" stop-opacity="0.8"/><stop offset="100%" stop-color="#0a0e14" stop-opacity="0.6"/></linearGradient>
 </defs>
 
-<!-- LANES -->
-<rect x="10" y="40" width="290" height="950" rx="12" fill="#0d1117" stroke="#1e3a5f"/>
-<rect x="310" y="40" width="290" height="950" rx="12" fill="#0d1117" stroke="#2d1b69"/>
-<rect x="610" y="40" width="290" height="950" rx="12" fill="#0d1117" stroke="#5c3d0a"/>
-<rect x="910" y="40" width="290" height="950" rx="12" fill="#0d1117" stroke="#064e3b"/>
-<rect x="1210" y="40" width="300" height="950" rx="12" fill="#0d1117" stroke="#5c1a1a"/>
+<!-- LANE BACKGROUNDS -->
+<rect x="10" y="38" width="290" height="900" rx="10" fill="url(#lane-bg)" stroke="#1e293b" stroke-opacity="0.5"/>
+<rect x="310" y="38" width="290" height="900" rx="10" fill="url(#lane-bg)" stroke="#1e293b" stroke-opacity="0.5"/>
+<rect x="610" y="38" width="290" height="900" rx="10" fill="url(#lane-bg)" stroke="#1e293b" stroke-opacity="0.5"/>
+<rect x="910" y="38" width="290" height="900" rx="10" fill="url(#lane-bg)" stroke="#1e293b" stroke-opacity="0.5"/>
+<rect x="1210" y="38" width="310" height="900" rx="10" fill="url(#lane-bg)" stroke="#1e293b" stroke-opacity="0.5"/>
 
-<text x="155" y="70" text-anchor="middle" fill="#3b82f6" font-size="15" font-weight="bold">INPUT</text>
-<text x="455" y="70" text-anchor="middle" fill="#8b5cf6" font-size="15" font-weight="bold">PROCESSING</text>
-<text x="755" y="70" text-anchor="middle" fill="#f59e0b" font-size="15" font-weight="bold">ML / AI</text>
-<text x="1055" y="70" text-anchor="middle" fill="#10b981" font-size="15" font-weight="bold">LEARNING</text>
-<text x="1360" y="70" text-anchor="middle" fill="#ef4444" font-size="15" font-weight="bold">OUTPUT</text>
+<!-- LANE HEADERS -->
+<text x="155" y="62" text-anchor="middle" fill="#3b82f6" font-size="11" font-weight="700" letter-spacing="2">INPUT</text>
+<text x="455" y="62" text-anchor="middle" fill="#8b5cf6" font-size="11" font-weight="700" letter-spacing="2">PROCESSING</text>
+<text x="755" y="62" text-anchor="middle" fill="#f59e0b" font-size="11" font-weight="700" letter-spacing="2">ML / AI</text>
+<text x="1055" y="62" text-anchor="middle" fill="#10b981" font-size="11" font-weight="700" letter-spacing="2">LEARNING</text>
+<text x="1365" y="62" text-anchor="middle" fill="#ef4444" font-size="11" font-weight="700" letter-spacing="2">OUTPUT</text>
 
-<!-- ══ ROW 1: MVP ══ -->
-<text x="760" y="103" text-anchor="middle" fill="#555" font-size="11" letter-spacing="3">MVP VIDEO PIPELINE</text>
+<!-- ═══ ROW 1: MVP VIDEO PIPELINE ═══ -->
+<rect x="30" y="80" width="1490" height="2" rx="1" fill="#1e293b" opacity="0.4"/>
+<text x="760" y="96" text-anchor="middle" fill="#475569" font-size="10" font-weight="600" letter-spacing="3">MVP VIDEO PIPELINE</text>
 
-<rect class="n" data-id="video-src" x="30" y="118" width="250" height="48" rx="8" fill="#111827" stroke="#3b82f6" stroke-width="1.5"/>
-<text x="155" y="138" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">Video Source</text>
-<text x="155" y="155" text-anchor="middle" fill="#888" font-size="10">YouTube / Upload / RTSP</text>
-<rect class="n" data-id="download" x="30" y="178" width="250" height="38" rx="8" fill="#111827" stroke="#3b82f6" stroke-width="1.5"/>
-<text x="155" y="202" text-anchor="middle" fill="#fff" font-size="12">yt-dlp Download</text>
+<rect class="n" data-id="video-src" x="30" y="110" width="250" height="46" rx="6" fill="#0c1929" stroke="#1e3a5f" stroke-width="1"/>
+<text x="155" y="129" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">Video Source</text>
+<text x="155" y="145" text-anchor="middle" fill="#64748b" font-size="10">YouTube / Upload / RTSP</text>
+<rect class="n" data-id="download" x="30" y="166" width="250" height="34" rx="6" fill="#0c1929" stroke="#1e3a5f" stroke-width="1"/>
+<text x="155" y="188" text-anchor="middle" fill="#94a3b8" font-size="11">yt-dlp Download</text>
 
-<rect class="n" data-id="pipeline" x="330" y="118" width="250" height="48" rx="8" fill="#1a1033" stroke="#8b5cf6" stroke-width="1.5"/>
-<text x="455" y="138" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">Video Pipeline</text>
-<text x="455" y="155" text-anchor="middle" fill="#888" font-size="10">Frame loop + tracking</text>
-<rect class="n" data-id="queue" x="330" y="178" width="250" height="38" rx="8" fill="#1a1033" stroke="#8b5cf6" stroke-width="1.5"/>
-<text x="455" y="202" text-anchor="middle" fill="#fff" font-size="12">Job Queue</text>
+<rect class="n" data-id="pipeline" x="330" y="110" width="250" height="46" rx="6" fill="#130d24" stroke="#312460" stroke-width="1"/>
+<text x="455" y="129" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">Video Pipeline</text>
+<text x="455" y="145" text-anchor="middle" fill="#64748b" font-size="10">Frame loop + tracking</text>
+<rect class="n" data-id="queue" x="330" y="166" width="250" height="34" rx="6" fill="#130d24" stroke="#312460" stroke-width="1"/>
+<text x="455" y="188" text-anchor="middle" fill="#94a3b8" font-size="11">Job Queue</text>
 
-<rect class="n" data-id="yolo-mvp" x="630" y="118" width="250" height="48" rx="8" fill="#1a1505" stroke="#f59e0b" stroke-width="1.5"/>
-<text x="755" y="138" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">YOLO11s</text>
-<text x="755" y="155" text-anchor="middle" fill="#888" font-size="10">Person detection + BoT-SORT</text>
-<rect class="n" data-id="insightface" x="630" y="178" width="250" height="38" rx="8" fill="#1a1505" stroke="#f59e0b" stroke-width="1.5"/>
-<text x="755" y="202" text-anchor="middle" fill="#fff" font-size="12">InsightFace buffalo_l</text>
-<rect class="n" data-id="yolo-pose" x="630" y="228" width="250" height="38" rx="8" fill="#1a1505" stroke="#f59e0b" stroke-width="1.5"/>
-<text x="755" y="252" text-anchor="middle" fill="#fff" font-size="12">YOLO11s-Pose (behavior)</text>
+<rect class="n" data-id="yolo-mvp" x="630" y="110" width="250" height="46" rx="6" fill="#1a1505" stroke="#854d0e" stroke-width="1"/>
+<text x="755" y="129" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">YOLO11s</text>
+<text x="755" y="145" text-anchor="middle" fill="#64748b" font-size="10">Person detection + BoT-SORT</text>
+<rect class="n" data-id="insightface" x="630" y="166" width="250" height="34" rx="6" fill="#1a1505" stroke="#854d0e" stroke-width="1"/>
+<text x="755" y="188" text-anchor="middle" fill="#94a3b8" font-size="11">InsightFace buffalo_l</text>
+<rect class="n" data-id="yolo-pose" x="630" y="210" width="250" height="34" rx="6" fill="#1a1505" stroke="#854d0e" stroke-width="1"/>
+<text x="755" y="232" text-anchor="middle" fill="#94a3b8" font-size="11">YOLO11s-Pose (behavior)</text>
 
-<rect class="n" data-id="face-embed" x="930" y="118" width="250" height="48" rx="8" fill="#051a14" stroke="#10b981" stroke-width="1.5"/>
-<text x="1055" y="138" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">Face Embeddings</text>
-<text x="1055" y="155" text-anchor="middle" fill="#888" font-size="10">512-d cosine dedup + ReID</text>
-<rect class="n" data-id="behavior" x="930" y="178" width="250" height="38" rx="8" fill="#051a14" stroke="#10b981" stroke-width="1.5"/>
-<text x="1055" y="202" text-anchor="middle" fill="#fff" font-size="12">Behavior Analysis</text>
-<rect class="n" data-id="demographics" x="930" y="228" width="250" height="38" rx="8" fill="#051a14" stroke="#10b981" stroke-width="1.5"/>
-<text x="1055" y="252" text-anchor="middle" fill="#fff" font-size="12">Demographics (age/gender)</text>
+<rect class="n" data-id="face-embed" x="930" y="110" width="250" height="46" rx="6" fill="#061a14" stroke="#065f46" stroke-width="1"/>
+<text x="1055" y="129" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">Face Embeddings</text>
+<text x="1055" y="145" text-anchor="middle" fill="#64748b" font-size="10">512-d cosine dedup + ReID</text>
+<rect class="n" data-id="behavior" x="930" y="166" width="250" height="34" rx="6" fill="#061a14" stroke="#065f46" stroke-width="1"/>
+<text x="1055" y="188" text-anchor="middle" fill="#94a3b8" font-size="11">Behavior Analysis</text>
+<rect class="n" data-id="demographics" x="930" y="210" width="250" height="34" rx="6" fill="#061a14" stroke="#065f46" stroke-width="1"/>
+<text x="1055" y="232" text-anchor="middle" fill="#94a3b8" font-size="11">Demographics (age/gender)</text>
 
-<rect class="n" data-id="fastapi" x="1230" y="118" width="260" height="48" rx="8" fill="#1a0a0a" stroke="#ef4444" stroke-width="1.5"/>
-<text x="1360" y="138" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">FastAPI Server</text>
-<text x="1360" y="155" text-anchor="middle" fill="#888" font-size="10">13 routers, 37 endpoints</text>
-<rect class="n" data-id="sqlite" x="1230" y="178" width="260" height="38" rx="8" fill="#1a1a1a" stroke="#64748b" stroke-width="1.5"/>
-<text x="1360" y="202" text-anchor="middle" fill="#94a3b8" font-size="12">SQLite + WAL (5 tables)</text>
-<rect class="n" data-id="html-ui" x="1230" y="228" width="260" height="38" rx="8" fill="#1a0a0a" stroke="#ef4444" stroke-width="1.5"/>
-<text x="1360" y="252" text-anchor="middle" fill="#fff" font-size="12">Web Dashboard (8 pages)</text>
+<rect class="n" data-id="fastapi" x="1230" y="110" width="270" height="46" rx="6" fill="#1a0a0f" stroke="#7f1d1d" stroke-width="1"/>
+<text x="1365" y="129" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">FastAPI Server</text>
+<text x="1365" y="145" text-anchor="middle" fill="#64748b" font-size="10">13 routers, 37 endpoints</text>
+<rect class="n" data-id="sqlite" x="1230" y="166" width="270" height="34" rx="6" fill="#0f1115" stroke="#334155" stroke-width="1"/>
+<text x="1365" y="188" text-anchor="middle" fill="#94a3b8" font-size="11">SQLite + WAL (5 tables)</text>
+<rect class="n" data-id="html-ui" x="1230" y="210" width="270" height="34" rx="6" fill="#1a0a0f" stroke="#7f1d1d" stroke-width="1"/>
+<text x="1365" y="232" text-anchor="middle" fill="#94a3b8" font-size="11">Web Dashboard (8 pages)</text>
 
 <!-- R1 arrows -->
-<line x1="280" y1="142" x2="328" y2="142" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="280" y1="197" x2="328" y2="197" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="580" y1="142" x2="628" y2="142" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="580" y1="197" x2="628" y2="197" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<path d="M580 142L600 142L600 247L628 247" fill="none" stroke="#555" stroke-width="1" marker-end="url(#a)"/>
-<line x1="880" y1="142" x2="928" y2="142" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="880" y1="197" x2="928" y2="197" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="880" y1="247" x2="928" y2="247" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="1180" y1="142" x2="1228" y2="142" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="1180" y1="197" x2="1228" y2="197" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="1180" y1="247" x2="1228" y2="247" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
+<line x1="280" y1="133" x2="328" y2="133" stroke="#334155" stroke-width="1.2" marker-end="url(#a)"/>
+<line x1="580" y1="133" x2="628" y2="133" stroke="#334155" stroke-width="1.2" marker-end="url(#a)"/>
+<line x1="880" y1="133" x2="928" y2="133" stroke="#334155" stroke-width="1.2" marker-end="url(#a)"/>
+<line x1="1180" y1="133" x2="1228" y2="133" stroke="#334155" stroke-width="1.2" marker-end="url(#a)"/>
 
-<!-- ══ ROW 2: SIPP ══ -->
-<text x="760" y="305" text-anchor="middle" fill="#555" font-size="11" letter-spacing="3">SIPP BAR DETECTION PIPELINE</text>
+<!-- ═══ ROW 2: SIPP BAR DETECTION ═══ -->
+<rect x="30" y="260" width="1490" height="2" rx="1" fill="#1e293b" opacity="0.4"/>
+<text x="760" y="278" text-anchor="middle" fill="#475569" font-size="10" font-weight="600" letter-spacing="3">SIPP BAR DETECTION PIPELINE</text>
 
-<rect class="n" data-id="rtsp" x="30" y="322" width="250" height="48" rx="8" fill="#111827" stroke="#3b82f6" stroke-width="1.5"/>
-<text x="155" y="342" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">RTSP / Video Feed</text>
-<text x="155" y="359" text-anchor="middle" fill="#888" font-size="10">Live camera or file</text>
-<rect class="n" data-id="zones-cfg" x="30" y="382" width="250" height="38" rx="8" fill="#111827" stroke="#3b82f6" stroke-width="1.5"/>
-<text x="155" y="406" text-anchor="middle" fill="#fff" font-size="12">zones.json + settings.py</text>
+<rect class="n" data-id="rtsp" x="30" y="292" width="250" height="46" rx="6" fill="#0c1929" stroke="#1e3a5f" stroke-width="1"/>
+<text x="155" y="311" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">RTSP / Video Feed</text>
+<text x="155" y="327" text-anchor="middle" fill="#64748b" font-size="10">Live camera or file</text>
+<rect class="n" data-id="zones-cfg" x="30" y="348" width="250" height="34" rx="6" fill="#0c1929" stroke="#1e3a5f" stroke-width="1"/>
+<text x="155" y="370" text-anchor="middle" fill="#94a3b8" font-size="11">zones.json + settings.py</text>
 
-<rect class="n" data-id="dual-tracker" x="330" y="322" width="250" height="48" rx="8" fill="#1a1033" stroke="#8b5cf6" stroke-width="1.5"/>
-<text x="455" y="342" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">DualTracker</text>
-<text x="455" y="359" text-anchor="middle" fill="#888" font-size="10">BoT-SORT + ByteTrack</text>
-<rect class="n" data-id="interactions" x="330" y="382" width="250" height="38" rx="8" fill="#1a1033" stroke="#8b5cf6" stroke-width="1.5"/>
-<text x="455" y="406" text-anchor="middle" fill="#fff" font-size="12">InteractionDetector</text>
-<rect class="n" data-id="clip-buf" x="330" y="432" width="250" height="38" rx="8" fill="#1a1033" stroke="#8b5cf6" stroke-width="1.5"/>
-<text x="455" y="456" text-anchor="middle" fill="#fff" font-size="12">ClipBuffer (ring buffer)</text>
+<rect class="n" data-id="dual-tracker" x="330" y="292" width="250" height="46" rx="6" fill="#130d24" stroke="#312460" stroke-width="1"/>
+<text x="455" y="311" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">DualTracker</text>
+<text x="455" y="327" text-anchor="middle" fill="#64748b" font-size="10">BoT-SORT + ByteTrack</text>
+<rect class="n" data-id="interactions" x="330" y="348" width="250" height="34" rx="6" fill="#130d24" stroke="#312460" stroke-width="1"/>
+<text x="455" y="370" text-anchor="middle" fill="#94a3b8" font-size="11">InteractionDetector</text>
+<rect class="n" data-id="clip-buf" x="330" y="392" width="250" height="34" rx="6" fill="#130d24" stroke="#312460" stroke-width="1"/>
+<text x="455" y="414" text-anchor="middle" fill="#94a3b8" font-size="11">ClipBuffer (ring buffer)</text>
 
-<rect class="n" data-id="yolo-bar" x="630" y="322" width="250" height="48" rx="8" fill="#1a1505" stroke="#f59e0b" stroke-width="1.5"/>
-<text x="755" y="342" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">YOLO11s / bar</text>
-<text x="755" y="359" text-anchor="middle" fill="#888" font-size="10">17-class or COCO auto-switch</text>
-<rect class="n" data-id="vlm" x="630" y="382" width="250" height="48" rx="8" fill="#1a1505" stroke="#f59e0b" stroke-width="1.5"/>
-<text x="755" y="402" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">Claude Vision API</text>
-<text x="755" y="419" text-anchor="middle" fill="#888" font-size="10">9 action classes</text>
-<rect class="n" data-id="safe-parse" x="630" y="442" width="250" height="38" rx="8" fill="#1a1505" stroke="#f59e0b" stroke-width="1.5"/>
-<text x="755" y="466" text-anchor="middle" fill="#fff" font-size="12">_safe_parse + budget cap</text>
+<rect class="n" data-id="yolo-bar" x="630" y="292" width="250" height="46" rx="6" fill="#1a1505" stroke="#854d0e" stroke-width="1"/>
+<text x="755" y="311" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">YOLO11s / bar</text>
+<text x="755" y="327" text-anchor="middle" fill="#64748b" font-size="10">17-class or COCO auto-switch</text>
+<rect class="n" data-id="vlm" x="630" y="348" width="250" height="46" rx="6" fill="#1a1505" stroke="#854d0e" stroke-width="1"/>
+<text x="755" y="367" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">Claude Vision API</text>
+<text x="755" y="383" text-anchor="middle" fill="#64748b" font-size="10">9 action classes</text>
+<rect class="n" data-id="safe-parse" x="630" y="404" width="250" height="34" rx="6" fill="#1a1505" stroke="#854d0e" stroke-width="1"/>
+<text x="755" y="426" text-anchor="middle" fill="#94a3b8" font-size="11">_safe_parse + budget cap</text>
 
-<rect class="n" data-id="dedup" x="930" y="322" width="250" height="48" rx="8" fill="#051a14" stroke="#10b981" stroke-width="1.5"/>
-<text x="1055" y="342" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">EventDeduplicator</text>
-<text x="1055" y="359" text-anchor="middle" fill="#888" font-size="10">10s sliding window</text>
-<rect class="n" data-id="cooldown" x="930" y="382" width="250" height="38" rx="8" fill="#051a14" stroke="#10b981" stroke-width="1.5"/>
-<text x="1055" y="406" text-anchor="middle" fill="#fff" font-size="12">Cooldown + Velocity Gate</text>
-<rect class="n" data-id="budget" x="930" y="432" width="250" height="38" rx="8" fill="#051a14" stroke="#10b981" stroke-width="1.5"/>
-<text x="1055" y="456" text-anchor="middle" fill="#fff" font-size="12">VLM Budget (100/hr)</text>
+<rect class="n" data-id="dedup" x="930" y="292" width="250" height="46" rx="6" fill="#061a14" stroke="#065f46" stroke-width="1"/>
+<text x="1055" y="311" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">EventDeduplicator</text>
+<text x="1055" y="327" text-anchor="middle" fill="#64748b" font-size="10">10s sliding window</text>
+<rect class="n" data-id="cooldown" x="930" y="348" width="250" height="34" rx="6" fill="#061a14" stroke="#065f46" stroke-width="1"/>
+<text x="1055" y="370" text-anchor="middle" fill="#94a3b8" font-size="11">Cooldown + Velocity Gate</text>
+<rect class="n" data-id="budget" x="930" y="392" width="250" height="34" rx="6" fill="#061a14" stroke="#065f46" stroke-width="1"/>
+<text x="1055" y="414" text-anchor="middle" fill="#94a3b8" font-size="11">VLM Budget (100/hr)</text>
 
-<rect class="n" data-id="bar-event" x="1230" y="322" width="260" height="48" rx="8" fill="#1a0a0a" stroke="#ef4444" stroke-width="1.5"/>
-<text x="1360" y="342" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">BarEvent</text>
-<text x="1360" y="359" text-anchor="middle" fill="#888" font-size="10">serve / payment / activity</text>
-<rect class="n" data-id="event-api" x="1230" y="382" width="260" height="38" rx="8" fill="#1a0a0a" stroke="#ef4444" stroke-width="1.5"/>
-<text x="1360" y="406" text-anchor="middle" fill="#fff" font-size="12">POST /events/batch</text>
-<rect class="n" data-id="clips" x="1230" y="432" width="260" height="38" rx="8" fill="#1a1a1a" stroke="#64748b" stroke-width="1.5"/>
-<text x="1360" y="456" text-anchor="middle" fill="#94a3b8" font-size="12">confirmed_clips/ (training)</text>
+<rect class="n" data-id="bar-event" x="1230" y="292" width="270" height="46" rx="6" fill="#1a0a0f" stroke="#7f1d1d" stroke-width="1"/>
+<text x="1365" y="311" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">BarEvent</text>
+<text x="1365" y="327" text-anchor="middle" fill="#64748b" font-size="10">serve / payment / activity</text>
+<rect class="n" data-id="event-api" x="1230" y="348" width="270" height="34" rx="6" fill="#1a0a0f" stroke="#7f1d1d" stroke-width="1"/>
+<text x="1365" y="370" text-anchor="middle" fill="#94a3b8" font-size="11">POST /events/batch</text>
+<rect class="n" data-id="clips" x="1230" y="392" width="270" height="34" rx="6" fill="#0f1115" stroke="#334155" stroke-width="1"/>
+<text x="1365" y="414" text-anchor="middle" fill="#94a3b8" font-size="11">confirmed_clips/ (training)</text>
 
 <!-- R2 arrows -->
-<line x1="280" y1="346" x2="328" y2="346" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="280" y1="401" x2="328" y2="401" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="580" y1="346" x2="628" y2="346" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="580" y1="401" x2="628" y2="401" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="580" y1="451" x2="628" y2="410" stroke="#555" stroke-width="1" marker-end="url(#a)"/>
-<line x1="880" y1="346" x2="928" y2="346" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="880" y1="410" x2="928" y2="401" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="880" y1="461" x2="928" y2="451" stroke="#555" stroke-width="1" marker-end="url(#a)"/>
-<line x1="1180" y1="346" x2="1228" y2="346" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="1180" y1="401" x2="1228" y2="401" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="1180" y1="451" x2="1228" y2="451" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
+<line x1="280" y1="315" x2="328" y2="315" stroke="#334155" stroke-width="1.2" marker-end="url(#a)"/>
+<line x1="580" y1="315" x2="628" y2="315" stroke="#334155" stroke-width="1.2" marker-end="url(#a)"/>
+<line x1="880" y1="315" x2="928" y2="315" stroke="#334155" stroke-width="1.2" marker-end="url(#a)"/>
+<line x1="1180" y1="315" x2="1228" y2="315" stroke="#334155" stroke-width="1.2" marker-end="url(#a)"/>
 
-<!-- ══ ROW 3: TRAINING ══ -->
-<text x="760" y="515" text-anchor="middle" fill="#555" font-size="11" letter-spacing="3">BAR MODEL TRAINING PIPELINE</text>
+<!-- ═══ FEEDBACK: DATA ═══ -->
+<rect x="30" y="442" width="1490" height="2" rx="1" fill="#10b981" opacity="0.15"/>
+<path d="M1500 414 Q1510 446 1490 446 L310 446 Q295 446 295 458 L295 500 L328 500"
+      fill="none" stroke="#10b981" stroke-width="1.2" stroke-dasharray="5,4" opacity="0.6" marker-end="url(#ag)"/>
+<rect x="560" y="438" width="400" height="16" rx="8" fill="#060910"/>
+<text x="760" y="450" text-anchor="middle" fill="#10b981" font-size="9" font-weight="500" opacity="0.8" letter-spacing="0.5">confirmed_clips feed back into training frames</text>
 
-<rect class="n" data-id="raw-video" x="30" y="532" width="250" height="48" rx="8" fill="#111827" stroke="#3b82f6" stroke-width="1.5"/>
-<text x="155" y="552" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">Raw Bar Footage</text>
-<text x="155" y="569" text-anchor="middle" fill="#888" font-size="10">+ confirmed_clips/</text>
-<rect class="n" data-id="extract" x="30" y="592" width="250" height="38" rx="8" fill="#111827" stroke="#3b82f6" stroke-width="1.5"/>
-<text x="155" y="616" text-anchor="middle" fill="#fff" font-size="12">extract_frames.py (1 FPS)</text>
+<!-- ═══ ROW 3: TRAINING PIPELINE ═══ -->
+<text x="760" y="478" text-anchor="middle" fill="#475569" font-size="10" font-weight="600" letter-spacing="3">BAR MODEL TRAINING PIPELINE</text>
 
-<rect class="n" data-id="autolabel" x="330" y="532" width="250" height="48" rx="8" fill="#1a1033" stroke="#8b5cf6" stroke-width="1.5"/>
-<text x="455" y="552" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">Grounding DINO</text>
-<text x="455" y="569" text-anchor="middle" fill="#888" font-size="10">Autodistill, 16 prompts</text>
-<rect class="n" data-id="sahi" x="330" y="592" width="250" height="38" rx="8" fill="#1a1033" stroke="#8b5cf6" stroke-width="1.5"/>
-<text x="455" y="616" text-anchor="middle" fill="#fff" font-size="12">SAHI Sliced Inference</text>
-<rect class="n" data-id="remap" x="330" y="642" width="250" height="38" rx="8" fill="#1a1033" stroke="#8b5cf6" stroke-width="1.5"/>
-<text x="455" y="666" text-anchor="middle" fill="#fff" font-size="12">COCO Remap (4 classes)</text>
+<rect class="n" data-id="raw-video" x="30" y="492" width="250" height="46" rx="6" fill="#0c1929" stroke="#1e3a5f" stroke-width="1"/>
+<text x="155" y="511" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">Raw Bar Footage</text>
+<text x="155" y="527" text-anchor="middle" fill="#64748b" font-size="10">+ confirmed_clips/</text>
+<rect class="n" data-id="extract" x="30" y="548" width="250" height="34" rx="6" fill="#0c1929" stroke="#1e3a5f" stroke-width="1"/>
+<text x="155" y="570" text-anchor="middle" fill="#94a3b8" font-size="11">extract_frames.py (1 FPS)</text>
 
-<rect class="n" data-id="merge" x="630" y="532" width="250" height="48" rx="8" fill="#1a1505" stroke="#f59e0b" stroke-width="1.5"/>
-<text x="755" y="552" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">Merge + NMS Dedup</text>
-<text x="755" y="569" text-anchor="middle" fill="#888" font-size="10">3 sources unified</text>
-<rect class="n" data-id="train" x="630" y="592" width="250" height="48" rx="8" fill="#1a1505" stroke="#f59e0b" stroke-width="1.5"/>
-<text x="755" y="612" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">YOLO11s Fine-tune</text>
-<text x="755" y="629" text-anchor="middle" fill="#888" font-size="10">50 epochs, 640px</text>
+<rect class="n" data-id="autolabel" x="330" y="492" width="250" height="46" rx="6" fill="#130d24" stroke="#312460" stroke-width="1"/>
+<text x="455" y="511" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">Grounding DINO</text>
+<text x="455" y="527" text-anchor="middle" fill="#64748b" font-size="10">Autodistill, 16 prompts</text>
+<rect class="n" data-id="sahi" x="330" y="548" width="250" height="34" rx="6" fill="#130d24" stroke="#312460" stroke-width="1"/>
+<text x="455" y="570" text-anchor="middle" fill="#94a3b8" font-size="11">SAHI Sliced Inference</text>
+<rect class="n" data-id="remap" x="330" y="592" width="250" height="34" rx="6" fill="#130d24" stroke="#312460" stroke-width="1"/>
+<text x="455" y="614" text-anchor="middle" fill="#94a3b8" font-size="11">COCO Remap (4 classes)</text>
 
-<rect class="n" data-id="evaluate" x="930" y="532" width="250" height="48" rx="8" fill="#051a14" stroke="#10b981" stroke-width="1.5"/>
-<text x="1055" y="552" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">Evaluate</text>
-<text x="1055" y="569" text-anchor="middle" fill="#888" font-size="10">bar vs COCO baseline</text>
-<rect class="n" data-id="ontology" x="930" y="592" width="250" height="38" rx="8" fill="#051a14" stroke="#10b981" stroke-width="1.5"/>
-<text x="1055" y="616" text-anchor="middle" fill="#fff" font-size="12">17-Class Bar Ontology</text>
+<rect class="n" data-id="merge" x="630" y="492" width="250" height="46" rx="6" fill="#1a1505" stroke="#854d0e" stroke-width="1"/>
+<text x="755" y="511" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">Merge + NMS Dedup</text>
+<text x="755" y="527" text-anchor="middle" fill="#64748b" font-size="10">3 sources unified</text>
+<rect class="n" data-id="train" x="630" y="548" width="250" height="46" rx="6" fill="#1a1505" stroke="#854d0e" stroke-width="1"/>
+<text x="755" y="567" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">YOLO11s Fine-tune</text>
+<text x="755" y="583" text-anchor="middle" fill="#64748b" font-size="10">50 epochs, 640px</text>
 
-<rect class="n" data-id="bar-model" x="1230" y="532" width="260" height="48" rx="8" fill="#1a0a0a" stroke="#ef4444" stroke-width="1.5"/>
-<text x="1360" y="552" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">yolo11s-bar.pt</text>
-<text x="1360" y="569" text-anchor="middle" fill="#888" font-size="10">Fine-tuned bar model</text>
-<rect class="n" data-id="data-yaml" x="1230" y="592" width="260" height="38" rx="8" fill="#1a1a1a" stroke="#64748b" stroke-width="1.5"/>
-<text x="1360" y="616" text-anchor="middle" fill="#94a3b8" font-size="12">data.yaml (17 classes)</text>
+<rect class="n" data-id="evaluate" x="930" y="492" width="250" height="46" rx="6" fill="#061a14" stroke="#065f46" stroke-width="1"/>
+<text x="1055" y="511" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">Evaluate</text>
+<text x="1055" y="527" text-anchor="middle" fill="#64748b" font-size="10">bar vs COCO baseline</text>
+<rect class="n" data-id="ontology" x="930" y="548" width="250" height="34" rx="6" fill="#061a14" stroke="#065f46" stroke-width="1"/>
+<text x="1055" y="570" text-anchor="middle" fill="#94a3b8" font-size="11">17-Class Bar Ontology</text>
+
+<rect class="n" data-id="bar-model" x="1230" y="492" width="270" height="46" rx="6" fill="#1a0a0f" stroke="#7f1d1d" stroke-width="1"/>
+<text x="1365" y="511" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">yolo11s-bar.pt</text>
+<text x="1365" y="527" text-anchor="middle" fill="#64748b" font-size="10">Fine-tuned bar model</text>
+<rect class="n" data-id="data-yaml" x="1230" y="548" width="270" height="34" rx="6" fill="#0f1115" stroke="#334155" stroke-width="1"/>
+<text x="1365" y="570" text-anchor="middle" fill="#94a3b8" font-size="11">data.yaml (17 classes)</text>
 
 <!-- R3 arrows -->
-<line x1="280" y1="556" x2="328" y2="556" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="280" y1="611" x2="328" y2="611" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="580" y1="556" x2="628" y2="556" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="580" y1="611" x2="628" y2="565" stroke="#555" stroke-width="1" marker-end="url(#a)"/>
-<line x1="580" y1="661" x2="628" y2="565" stroke="#555" stroke-width="1" marker-end="url(#a)"/>
-<line x1="880" y1="556" x2="928" y2="556" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="880" y1="616" x2="928" y2="611" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="1180" y1="556" x2="1228" y2="556" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
-<line x1="1180" y1="611" x2="1228" y2="611" stroke="#555" stroke-width="1.5" marker-end="url(#a)"/>
+<line x1="280" y1="515" x2="328" y2="515" stroke="#334155" stroke-width="1.2" marker-end="url(#a)"/>
+<line x1="580" y1="515" x2="628" y2="515" stroke="#334155" stroke-width="1.2" marker-end="url(#a)"/>
+<line x1="880" y1="515" x2="928" y2="515" stroke="#334155" stroke-width="1.2" marker-end="url(#a)"/>
+<line x1="1180" y1="515" x2="1228" y2="515" stroke="#334155" stroke-width="1.2" marker-end="url(#a)"/>
 
-<!-- ══ ROW 4: HARDENING ══ -->
-<text x="760" y="710" text-anchor="middle" fill="#555" font-size="11" letter-spacing="3">HARDENING &amp; INFRASTRUCTURE</text>
-<rect class="n" data-id="auth" x="30" y="728" width="250" height="38" rx="8" fill="#111827" stroke="#3b82f6" stroke-width="1.5"/>
-<text x="155" y="752" text-anchor="middle" fill="#fff" font-size="12">API Key Auth + TTL Cache</text>
-<rect class="n" data-id="ratelimit" x="330" y="728" width="250" height="38" rx="8" fill="#1a1033" stroke="#8b5cf6" stroke-width="1.5"/>
-<text x="455" y="752" text-anchor="middle" fill="#fff" font-size="12">slowapi Rate Limiting</text>
-<rect class="n" data-id="timeouts" x="630" y="728" width="250" height="38" rx="8" fill="#1a1505" stroke="#f59e0b" stroke-width="1.5"/>
-<text x="755" y="752" text-anchor="middle" fill="#fff" font-size="12">Timeouts + Size Limits</text>
-<rect class="n" data-id="responses" x="930" y="728" width="250" height="38" rx="8" fill="#051a14" stroke="#10b981" stroke-width="1.5"/>
-<text x="1055" y="752" text-anchor="middle" fill="#fff" font-size="12">Standardized Responses</text>
-<rect class="n" data-id="pagination" x="1230" y="728" width="260" height="38" rx="8" fill="#1a0a0a" stroke="#ef4444" stroke-width="1.5"/>
-<text x="1360" y="752" text-anchor="middle" fill="#fff" font-size="12">Pagination (4 endpoints)</text>
+<!-- ═══ FEEDBACK: MODEL ═══ -->
+<rect x="30" y="600" width="1490" height="2" rx="1" fill="#3b82f6" opacity="0.15"/>
+<path d="M1365 538 L1365 616 Q1365 626 1350 626 L170 626 Q155 626 155 616 L155 348"
+      fill="none" stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="5,4" opacity="0.6" marker-end="url(#ab)"/>
+<rect x="540" y="618" width="440" height="16" rx="8" fill="#060910"/>
+<text x="760" y="630" text-anchor="middle" fill="#3b82f6" font-size="9" font-weight="500" opacity="0.8" letter-spacing="0.5">yolo11s-bar.pt auto-switches into DualTracker via USE_BAR_MODEL</text>
 
-<!-- ══ ROW 5: TESTS ══ -->
-<text x="760" y="805" text-anchor="middle" fill="#555" font-size="11" letter-spacing="3">TEST COVERAGE</text>
-<rect class="n" data-id="test-mvp" x="30" y="822" width="250" height="38" rx="8" fill="#0a1a0a" stroke="#22c55e" stroke-width="1.5"/>
-<text x="155" y="846" text-anchor="middle" fill="#22c55e" font-size="12" font-weight="600">MVP: 108 tests</text>
-<rect class="n" data-id="test-w1" x="330" y="822" width="250" height="38" rx="8" fill="#0a1a0a" stroke="#22c55e" stroke-width="1.5"/>
-<text x="455" y="846" text-anchor="middle" fill="#22c55e" font-size="12" font-weight="600">Week 1: 85 tests</text>
-<rect class="n" data-id="test-w2" x="630" y="822" width="250" height="38" rx="8" fill="#0a1a0a" stroke="#22c55e" stroke-width="1.5"/>
-<text x="755" y="846" text-anchor="middle" fill="#22c55e" font-size="12" font-weight="600">Week 2: 68 tests</text>
-<rect class="n" data-id="test-sim" x="930" y="822" width="250" height="38" rx="8" fill="#0a1a0a" stroke="#22c55e" stroke-width="1.5"/>
-<text x="1055" y="846" text-anchor="middle" fill="#22c55e" font-size="12" font-weight="600">Chaos Sim: 37 tests</text>
-<rect class="n" data-id="test-prod" x="1230" y="822" width="260" height="38" rx="8" fill="#0a1a0a" stroke="#22c55e" stroke-width="1.5"/>
-<text x="1360" y="846" text-anchor="middle" fill="#22c55e" font-size="12" font-weight="600">Production: 46 tests</text>
+<!-- ═══ ROW 4: HARDENING ═══ -->
+<rect x="30" y="648" width="1490" height="2" rx="1" fill="#1e293b" opacity="0.4"/>
+<text x="760" y="668" text-anchor="middle" fill="#475569" font-size="10" font-weight="600" letter-spacing="3">HARDENING &amp; INFRASTRUCTURE</text>
 
-<rect x="620" y="880" width="280" height="36" rx="18" fill="#22c55e" fill-opacity="0.12" stroke="#22c55e" stroke-width="1.5"/>
-<text x="760" y="903" text-anchor="middle" fill="#22c55e" font-size="15" font-weight="bold">344 TESTS — ALL GREEN</text>
+<rect class="n" data-id="auth" x="30" y="682" width="250" height="38" rx="6" fill="#0c1929" stroke="#1e3a5f" stroke-width="1"/>
+<text x="155" y="706" text-anchor="middle" fill="#94a3b8" font-size="11">API Key Auth + TTL Cache</text>
+<rect class="n" data-id="ratelimit" x="330" y="682" width="250" height="38" rx="6" fill="#130d24" stroke="#312460" stroke-width="1"/>
+<text x="455" y="706" text-anchor="middle" fill="#94a3b8" font-size="11">slowapi Rate Limiting</text>
+<rect class="n" data-id="timeouts" x="630" y="682" width="250" height="38" rx="6" fill="#1a1505" stroke="#854d0e" stroke-width="1"/>
+<text x="755" y="706" text-anchor="middle" fill="#94a3b8" font-size="11">Timeouts + Size Limits</text>
+<rect class="n" data-id="responses" x="930" y="682" width="250" height="38" rx="6" fill="#061a14" stroke="#065f46" stroke-width="1"/>
+<text x="1055" y="706" text-anchor="middle" fill="#94a3b8" font-size="11">Standardized Responses</text>
+<rect class="n" data-id="pagination" x="1230" y="682" width="270" height="38" rx="6" fill="#1a0a0f" stroke="#7f1d1d" stroke-width="1"/>
+<text x="1365" y="706" text-anchor="middle" fill="#94a3b8" font-size="11">Pagination (4 endpoints)</text>
 
-<!-- FEEDBACK LOOPS -->
-<path d="M1360 580 L1360 690 Q1360 700 1345 700 L170 700 Q155 700 155 690 L155 375"
-      fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#ab)"/>
-<text x="760" y="697" text-anchor="middle" fill="#3b82f6" font-size="10" font-style="italic">model feedback: yolo11s-bar.pt auto-switches into DualTracker</text>
+<!-- ═══ ROW 5: TESTS ═══ -->
+<rect x="30" y="736" width="1490" height="2" rx="1" fill="#1e293b" opacity="0.4"/>
+<text x="760" y="758" text-anchor="middle" fill="#475569" font-size="10" font-weight="600" letter-spacing="3">TEST COVERAGE</text>
 
-<path d="M1490 470 L1500 495 Q1500 505 1490 505 L310 505 Q300 505 300 515 L300 554 L328 554"
-      fill="none" stroke="#10b981" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#a)"/>
-<text x="760" y="502" text-anchor="middle" fill="#10b981" font-size="10" font-style="italic">data feedback: confirmed_clips feed into training frames</text>
+<rect class="n" data-id="test-mvp" x="30" y="772" width="250" height="36" rx="6" fill="#071207" stroke="#166534" stroke-width="1"/>
+<text x="155" y="795" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">MVP: 108 tests</text>
+<rect class="n" data-id="test-w1" x="330" y="772" width="250" height="36" rx="6" fill="#071207" stroke="#166534" stroke-width="1"/>
+<text x="455" y="795" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">Week 1: 85 tests</text>
+<rect class="n" data-id="test-w2" x="630" y="772" width="250" height="36" rx="6" fill="#071207" stroke="#166534" stroke-width="1"/>
+<text x="755" y="795" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">Week 2: 68 tests</text>
+<rect class="n" data-id="test-sim" x="930" y="772" width="250" height="36" rx="6" fill="#071207" stroke="#166534" stroke-width="1"/>
+<text x="1055" y="795" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">Chaos Sim: 37 tests</text>
+<rect class="n" data-id="test-prod" x="1230" y="772" width="270" height="36" rx="6" fill="#071207" stroke="#166534" stroke-width="1"/>
+<text x="1365" y="795" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">Production: 46 tests</text>
+
+<!-- TOTAL BADGE -->
+<rect x="610" y="826" width="300" height="34" rx="17" fill="#22c55e" fill-opacity="0.08" stroke="#22c55e" stroke-width="1.5" stroke-opacity="0.4"/>
+<text x="760" y="848" text-anchor="middle" fill="#4ade80" font-size="14" font-weight="700" letter-spacing="1">344 TESTS  -  ALL GREEN</text>
+
 </svg>
 </div>
 
-<div id="tooltip" class="tt"></div>
-<div class="dp"><div class="dc" id="dc"></div></div>
+<div id="tooltip" class="tooltip"></div>
+<div class="detail-panel"><div class="detail-card" id="dc"></div></div>
 
 <script>
 const D={
@@ -3666,7 +3667,7 @@ const D={
 "extract":{t:"Frame Extraction",f:"sipp-pipeline/training/extract_frames.py",d:"ffmpeg at 1 FPS. JPGs to frames/ directory."},
 "autolabel":{t:"Grounding DINO",f:"sipp-pipeline/training/autolabel.py",d:"Autodistill + CaptionOntology. 16 bar-specific prompts. Zero-shot labeling."},
 "sahi":{t:"SAHI Sliced",f:"sipp-pipeline/training/sahi_label.py",d:"Small object detection at CCTV res. Low-confidence + 20% sample. NMS dedup."},
-"remap":{t:"COCO Remap",f:"sipp-pipeline/training/remap_coco.py",d:"keyboard\u2192pos_terminal, dining_table\u2192bar_counter, chair\u2192bar_stool, tv\u2192bar_screen."},
+"remap":{t:"COCO Remap",f:"sipp-pipeline/training/remap_coco.py",d:"keyboard to pos_terminal, dining_table to bar_counter, chair to bar_stool, tv to bar_screen."},
 "merge":{t:"Merge + NMS",f:"sipp-pipeline/training/merge_labels.py",d:"3 label sources unified. torchvision NMS dedup. Generates data.yaml."},
 "train":{t:"YOLO Fine-tune",f:"sipp-pipeline/training/train.py",d:"50 epochs, 640px, auto batch. 80/10/10 split. Copies best.pt."},
 "evaluate":{t:"Evaluate",f:"sipp-pipeline/training/evaluate.py",d:"Bar vs COCO side-by-side on test images. Per-class detection counts."},
@@ -3686,12 +3687,23 @@ const D={
 };
 const tt=document.getElementById('tooltip'),dc=document.getElementById('dc');
 document.querySelectorAll('.n').forEach(n=>{
-const id=n.dataset.id,d=D[id];if(!d)return;
+const id=n.dataset.id,info=D[id];if(!info)return;
 n.style.cursor='pointer';
-n.onmouseenter=()=>{tt.innerHTML='<div class="t1">'+d.t+'</div><div class="t2">'+d.f+'</div><div style="margin-top:6px">'+d.d+'</div>';tt.style.opacity='1';};
-n.onmousemove=e=>{tt.style.left=(e.clientX+16)+'px';tt.style.top=(e.clientY+16)+'px';};
+n.onmouseenter=()=>{
+tt.innerHTML='<div class="tt-title">'+info.t+'</div><div class="tt-file">'+info.f+'</div><div class="tt-desc">'+info.d+'</div>';
+tt.style.opacity='1';
+};
+n.onmousemove=e=>{
+const x=Math.min(e.clientX+16,window.innerWidth-360);
+const y=Math.min(e.clientY+16,window.innerHeight-200);
+tt.style.left=x+'px';tt.style.top=y+'px';
+};
 n.onmouseleave=()=>{tt.style.opacity='0';};
-n.onclick=()=>{dc.className='dc a';dc.innerHTML='<h3>'+d.t+'</h3><p style="color:#3b82f6;font-family:monospace;font-size:12px">'+d.f+'</p><p style="margin-top:10px;color:#ccc;line-height:1.6">'+d.d+'</p>';dc.scrollIntoView({behavior:'smooth',block:'nearest'});};
+n.onclick=()=>{
+dc.className='detail-card active';
+dc.innerHTML='<h3>'+info.t+'</h3><p style="color:#60a5fa;font-family:monospace;font-size:12px;margin-top:4px">'+info.f+'</p><p style="margin-top:12px;color:#cbd5e1;line-height:1.7">'+info.d+'</p>';
+dc.scrollIntoView({behavior:'smooth',block:'nearest'});
+};
 });
 </script>
 </body>
