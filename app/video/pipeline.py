@@ -17,8 +17,12 @@ from app.video.deps import load_video_deps, cv2, reid_module, behavior_module
 from app.video.models import get_yolo_model, analyze_face_single_pass
 from app.video.helpers import generate_pseudo_id, get_zone
 from app.video.embeddings import load_venue_embeddings_sync, save_visitor_embedding_sync, update_visitor_embedding_sync
+from app.video.scene_analyzer import (
+    analyze_scene, generate_tracker_config, compute_frame_interval,
+    is_valid_track, peak_density_floor, write_temp_tracker_yaml,
+)
 
-# Path to BoT-SORT config (relative to project root)
+# Path to BoT-SORT config (fallback if scene analysis fails)
 _BOTSORT_CONFIG = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "botsort.yaml")
 
 
@@ -30,6 +34,7 @@ def process_video_file(job_id: str, video_path: str, venue_id: str, db_url: str)
     from app.video.deps import cv2 as _cv2, reid_module as _reid, behavior_module as _behavior
 
     cap = None  # Initialize for cleanup in finally
+    temp_tracker_config = None  # Initialize for cleanup in finally
     try:
         load_video_deps()
 
@@ -92,9 +97,53 @@ def process_video_file(job_id: str, video_path: str, venue_id: str, db_url: str)
         processing_jobs[job_id]["fps"] = fps
         processing_jobs[job_id]["duration"] = duration_seconds
 
-        # Process more frames for better tracking (every 0.5 seconds instead of 1)
-        frame_interval = max(1, int(fps / 2))
+        # --- SCENE ANALYSIS PHASE ---
+        processing_jobs[job_id]["status"] = "analyzing_scene"
+        processing_jobs[job_id]["message"] = "Analyzing scene conditions..."
+
+        temp_tracker_config = None
+        try:
+            scene_profile = analyze_scene(cap, model, total_frames, fps, frame_width, frame_height)
+        except Exception as e:
+            print(f"Scene analysis failed, using defaults: {e}")
+            from app.video.scene_analyzer import SceneProfile
+            scene_profile = SceneProfile(
+                avg_brightness=128.0, brightness_std=0.0, motion_score=0.0,
+                crowd_density=0.0, max_detections=0, peak_frame_idx=0,
+                is_dark=False, is_shaky=False, is_crowded=False,
+                fps=fps, duration_seconds=duration_seconds,
+            )
+
+        processing_jobs[job_id]["scene_profile"] = {
+            "avg_brightness": round(scene_profile.avg_brightness, 1),
+            "is_dark": scene_profile.is_dark,
+            "is_shaky": scene_profile.is_shaky,
+            "is_crowded": scene_profile.is_crowded,
+            "max_detections": scene_profile.max_detections,
+            "motion_score": round(scene_profile.motion_score, 3),
+            "crowd_density": round(scene_profile.crowd_density, 3),
+        }
+
+        # Generate adaptive tracker config
+        tracker_params = generate_tracker_config(scene_profile)
+        temp_tracker_config = write_temp_tracker_yaml(tracker_params)
+        tracker_config = temp_tracker_config
+
+        # Adaptive frame interval
+        frame_interval = compute_frame_interval(scene_profile)
         frames_to_process = total_frames // frame_interval
+
+        print(
+            f"Scene analysis: dark={scene_profile.is_dark}, shaky={scene_profile.is_shaky}, "
+            f"crowded={scene_profile.is_crowded}, brightness={scene_profile.avg_brightness:.0f}, "
+            f"max_det={scene_profile.max_detections}, "
+            f"new_track_thresh={tracker_params['new_track_thresh']}, "
+            f"frame_interval={frame_interval}"
+        )
+
+        # Reset model predictor after scene analysis (clean tracker state)
+        if hasattr(model, 'predictor') and model.predictor is not None:
+            model.predictor = None
 
         track_data: Dict[int, Dict] = {}  # track_id -> {first_seen, last_seen, zones, positions}
         date_str = datetime.now().strftime("%Y%m%d")
@@ -103,9 +152,6 @@ def process_video_file(job_id: str, video_path: str, venue_id: str, db_url: str)
         all_events = []
         frame_count = 0
         processed_count = 0
-
-        # Resolve BoT-SORT config path
-        tracker_config = _BOTSORT_CONFIG if os.path.exists(_BOTSORT_CONFIG) else "botsort.yaml"
 
         processing_jobs[job_id]["status"] = "processing"
 
@@ -129,12 +175,14 @@ def process_video_file(job_id: str, video_path: str, venue_id: str, db_url: str)
 
             # BoT-SORT tracking: detection + tracking in one call
             # persist=True maintains track IDs across frames
+            # conf=0.25: lower threshold catches people in dark/crowded bar scenes
+            # where partial occlusion and low light drop confidence below 0.5
             results = model.track(
                 frame,
                 persist=True,
                 tracker=tracker_config,
                 classes=[0],    # persons only
-                conf=0.5,
+                conf=0.25,
                 verbose=False
             )
 
@@ -264,10 +312,17 @@ def process_video_file(job_id: str, video_path: str, venue_id: str, db_url: str)
         processing_jobs[job_id]["status"] = "generating_events"
         processing_jobs[job_id]["message"] = "Generating events..."
 
-        # Filter out short-lived tracks (noise/false detections)
-        MIN_FRAMES = 8
-        valid_tracks = {tid: data for tid, data in track_data.items()
-                       if data.get("frame_count", 1) >= MIN_FRAMES}
+        # Score-based track validation (replaces rigid MIN_FRAMES filter)
+        # Combines frame_count * avg_confidence — adapts to scene conditions
+        valid_tracks = {}
+        rejected_tracks = []
+        for tid, data in track_data.items():
+            fc = data.get("frame_count", 1)
+            avg_conf = data.get("conf_sum", 0.5) / max(fc, 1)
+            if is_valid_track(fc, avg_conf, scene_profile):
+                valid_tracks[tid] = data
+            else:
+                rejected_tracks.append((tid, fc, avg_conf))
 
         # DEDUPLICATION: Merge tracks that belong to the same person
         # Uses ArcFace face embeddings to detect when the tracker assigned
@@ -352,40 +407,28 @@ def process_video_file(job_id: str, video_path: str, venue_id: str, db_url: str)
 
         valid_tracks = merge_duplicate_tracks(valid_tracks)
 
-        # MAX-CONCURRENT CAP: If at most N people are ever visible at once,
-        # there can be at most N unique people. Keep the N longest tracks.
-        def cap_by_max_concurrent(tracks):
-            if len(tracks) <= 1:
-                return tracks
-
-            # Sweep-line to find max simultaneous tracks
-            time_events = []
-            for tid, data in tracks.items():
-                time_events.append((data["first_seen"], 0, tid))   # 0 = start (sort before end)
-                time_events.append((data["last_seen"], 1, tid))    # 1 = end
-            time_events.sort()
-
-            active = set()
-            max_concurrent = 0
-            for ts, etype, tid in time_events:
-                if etype == 0:
-                    active.add(tid)
-                else:
-                    active.discard(tid)
-                max_concurrent = max(max_concurrent, len(active))
-
-            if len(tracks) <= max_concurrent:
-                return tracks
-
-            # Keep the top N tracks by frame_count (longest-lived = most confident)
-            sorted_tids = sorted(tracks.keys(), key=lambda t: tracks[t].get("frame_count", 0), reverse=True)
-            return {tid: tracks[tid] for tid in sorted_tids[:max_concurrent]}
-
-        valid_tracks = cap_by_max_concurrent(valid_tracks)
+        # Peak density cross-check: ensure count >= max simultaneous detections
+        floor_count = peak_density_floor(scene_profile, len(valid_tracks))
+        if floor_count > len(valid_tracks):
+            deficit = floor_count - len(valid_tracks)
+            # Rescue highest-scoring rejected tracks (only if score >= 0.3)
+            from app.video.scene_analyzer import compute_track_score
+            rescue = [
+                (tid, track_data[tid]) for tid, fc, conf in rejected_tracks
+                if tid in track_data and compute_track_score(fc, conf) >= 0.3
+            ]
+            rescue.sort(
+                key=lambda x: x[1].get("frame_count", 1) * (x[1].get("conf_sum", 0.5) / max(x[1].get("frame_count", 1), 1)),
+                reverse=True,
+            )
+            for tid, data in rescue[:deficit]:
+                valid_tracks[tid] = data
+            processing_jobs[job_id]["debug_density_rescue"] = min(deficit, len(rescue))
 
         # Debug info
         processing_jobs[job_id]["debug_count_after"] = len(valid_tracks)
-        processing_jobs[job_id]["message"] = f"Found {len(valid_tracks)} unique visitors (dedup + concurrent cap)..."
+        processing_jobs[job_id]["debug_rejected"] = len(rejected_tracks)
+        processing_jobs[job_id]["message"] = f"Found {len(valid_tracks)} unique visitors (score-filtered + density floor)..."
 
         # Generate events from valid track data with ReID for return visitors
         seen_pseudo_ids = set()
@@ -587,5 +630,11 @@ def process_video_file(job_id: str, video_path: str, venue_id: str, db_url: str)
         if cap is not None:
             try:
                 cap.release()
+            except Exception:
+                pass
+        # Clean up temporary tracker config
+        if temp_tracker_config and os.path.exists(temp_tracker_config):
+            try:
+                os.remove(temp_tracker_config)
             except Exception:
                 pass
