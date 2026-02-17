@@ -39,10 +39,15 @@ class BarEvent:
             self.timestamp = time.time()
 
 
-async def post_events(events: list[BarEvent]) -> bool:
-    """POST verified events to the backend API.
+MAX_RETRIES = 3
+RETRY_BACKOFF_SECONDS = [1, 3, 10]
 
-    Returns True on success, False on failure.
+
+async def post_events(events: list[BarEvent]) -> bool:
+    """POST verified events to the backend API with retry.
+
+    Returns True on success, False after all retries exhausted.
+    Retries on network errors and 5xx responses.
     """
     if not events:
         return True
@@ -56,17 +61,32 @@ async def post_events(events: list[BarEvent]) -> bool:
     if EVENT_API_KEY:
         headers["X-API-Key"] = EVENT_API_KEY
 
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(EVENT_API_URL, json=payload, headers=headers)
-            if response.status_code == 200:
-                logger.info(f"Posted {len(events)} events")
-                return True
-            else:
-                logger.error(
-                    f"Event API returned {response.status_code}: {response.text[:200]}"
-                )
-                return False
-    except Exception as e:
-        logger.error(f"Failed to post events: {e}")
-        return False
+    for attempt in range(MAX_RETRIES):
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(EVENT_API_URL, json=payload, headers=headers)
+                if 200 <= response.status_code < 300:
+                    logger.info(f"Posted {len(events)} events")
+                    return True
+                elif response.status_code >= 500:
+                    # Server error — retry
+                    logger.warning(
+                        f"Event API returned {response.status_code} (attempt {attempt + 1}/{MAX_RETRIES}): "
+                        f"{response.text[:200]}"
+                    )
+                else:
+                    # Client error (4xx) — don't retry
+                    logger.error(
+                        f"Event API returned {response.status_code}: {response.text[:200]}"
+                    )
+                    return False
+        except Exception as e:
+            logger.warning(f"Failed to post events (attempt {attempt + 1}/{MAX_RETRIES}): {e}")
+
+        # Wait before retry (except on last attempt)
+        if attempt < MAX_RETRIES - 1:
+            import asyncio
+            await asyncio.sleep(RETRY_BACKOFF_SECONDS[attempt])
+
+    logger.error(f"Failed to post {len(events)} events after {MAX_RETRIES} attempts — events retained for next batch")
+    return False

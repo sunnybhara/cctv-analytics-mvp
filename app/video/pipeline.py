@@ -42,6 +42,13 @@ def process_video_file(job_id: str, video_path: str, venue_id: str, db_url: str)
         # Use pre-loaded YOLO model (or load on demand if not ready)
         model = get_yolo_model()
 
+        # Reset BoT-SORT tracker state from previous videos.
+        # The model is a singleton, so persist=True carries track IDs
+        # across calls. Without this reset, track IDs and Kalman filter
+        # state from the previous video leak into the new one.
+        if hasattr(model, 'predictor') and model.predictor is not None:
+            model.predictor = None
+
         # Initialize ReID for return visitor tracking
         reid_matcher = None
         reid_enabled = False

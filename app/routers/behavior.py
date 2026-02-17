@@ -230,7 +230,7 @@ async def get_behavior_by_zone(venue_id: str, days: int = 7, _api_key: str = Dep
 
 
 @router.get("/report/{venue_id}", response_class=HTMLResponse)
-async def generate_report(venue_id: str, days: int = 7):
+async def generate_report(venue_id: str, days: int = 7, auth_venue_id: str = Depends(require_api_key)):
     """
     Generate printable HTML report (Nielsen-style).
     Open in browser and print to PDF.

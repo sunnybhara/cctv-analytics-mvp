@@ -53,7 +53,7 @@ app.add_middleware(
 # Register all routers
 from app.routers import health, venues, events, analytics, advanced_analytics  # noqa: E402
 from app.routers import behavior, alerts, benchmarks, visitors  # noqa: E402
-from app.routers import video_processing, batch, map_api  # noqa: E402
+from app.routers import video_processing, batch, map_api, cohorts  # noqa: E402
 
 app.include_router(health.router)
 app.include_router(venues.router)
@@ -67,6 +67,7 @@ app.include_router(visitors.router)
 app.include_router(video_processing.router)
 app.include_router(batch.router)
 app.include_router(map_api.router)
+app.include_router(cohorts.router)
 
 # Pages router (HTML endpoints) - imported last since it may reference other routers
 try:

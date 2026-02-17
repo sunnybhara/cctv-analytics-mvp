@@ -29,6 +29,16 @@ def _set_cache(api_key: str, venue_id: str):
         _cache[api_key] = venue_id
 
 
+def verify_venue_access(auth_venue_id: str, requested_venue_id: str):
+    """Verify the authenticated user has access to the requested venue.
+    In dev mode (__dev__), all access is allowed.
+    """
+    if auth_venue_id == "__dev__":
+        return
+    if auth_venue_id != requested_venue_id:
+        raise HTTPException(status_code=403, detail="Access denied: API key does not match this venue")
+
+
 async def require_api_key(x_api_key: str = Header(default=None)) -> str:
     """
     Validate API key and return the associated venue_id.

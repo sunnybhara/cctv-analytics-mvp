@@ -738,6 +738,90 @@ async def process_page():
                 margin-bottom: 20px;
             }
             input[type="text"]:focus { border-color: #0066ff; outline: none; }
+            .map-search-container {
+                position: relative;
+                margin-bottom: 12px;
+            }
+            .map-search-container input {
+                width: 100%;
+                padding: 12px 16px 12px 40px;
+                border: 1px solid #333;
+                border-radius: 8px;
+                background: #0a0a0a;
+                color: #fff;
+                font-size: 14px;
+                margin-bottom: 0;
+            }
+            .map-search-container input:focus { border-color: #0066ff; outline: none; }
+            .map-search-icon {
+                position: absolute;
+                left: 14px;
+                top: 50%;
+                transform: translateY(-50%);
+                color: #666;
+                font-size: 14px;
+                pointer-events: none;
+            }
+            .map-search-results {
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: #1a1a1a;
+                border: 1px solid #333;
+                border-top: none;
+                border-radius: 0 0 8px 8px;
+                max-height: 200px;
+                overflow-y: auto;
+                z-index: 1000;
+                display: none;
+            }
+            .map-search-results .result-item {
+                padding: 10px 16px;
+                cursor: pointer;
+                font-size: 13px;
+                color: #ccc;
+                border-bottom: 1px solid #222;
+            }
+            .map-search-results .result-item:hover {
+                background: #252525;
+                color: #fff;
+            }
+            .location-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                background: #0a2540;
+                border: 1px solid #0066ff44;
+                color: #60a5fa;
+                padding: 6px 12px;
+                border-radius: 20px;
+                font-size: 13px;
+                margin-bottom: 12px;
+            }
+            .location-badge .remove-pin {
+                cursor: pointer;
+                color: #f87171;
+                margin-left: 4px;
+                font-weight: bold;
+            }
+            .coords-toggle {
+                font-size: 12px;
+                color: #555;
+                cursor: pointer;
+                margin-top: 4px;
+            }
+            .coords-toggle:hover { color: #888; }
+            .coords-detail {
+                display: none;
+                margin-top: 8px;
+                padding: 8px 12px;
+                background: #0a0a0a;
+                border-radius: 6px;
+                font-family: monospace;
+                font-size: 12px;
+                color: #666;
+            }
             input[type="file"] { padding: 10px; }
             button {
                 background: #0066ff;
@@ -871,28 +955,6 @@ async def process_page():
             <label for="venue-name">Venue Name</label>
             <input type="text" id="venue-name" placeholder="My Restaurant">
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <div>
-                    <label for="venue-lat">Latitude</label>
-                    <input type="number" id="venue-lat" step="0.0001" placeholder="-26.2041">
-                </div>
-                <div>
-                    <label for="venue-lng">Longitude</label>
-                    <input type="number" id="venue-lng" step="0.0001" placeholder="28.0473">
-                </div>
-            </div>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <div>
-                    <label for="venue-city">City</label>
-                    <input type="text" id="venue-city" placeholder="Johannesburg">
-                </div>
-                <div>
-                    <label for="venue-country">Country</label>
-                    <input type="text" id="venue-country" placeholder="South Africa">
-                </div>
-            </div>
-
             <label for="venue-type">Venue Type</label>
             <select id="venue-type" style="width: 100%; padding: 12px; background: #0a0a0a; color: #fff; border: 1px solid #333; border-radius: 8px; margin-bottom: 20px;">
                 <option value="">Select type...</option>
@@ -906,10 +968,27 @@ async def process_page():
                 <option value="other">Other</option>
             </select>
 
-            <div id="map-container" style="height: 200px; border-radius: 8px; margin-bottom: 15px; background: #1a1a1a; display: flex; align-items: center; justify-content: center; color: #666;">
+            <label>Location</label>
+            <div class="map-search-container">
+                <span class="map-search-icon">&#x1F50D;</span>
+                <input type="text" id="location-search" placeholder="Search address, city, or place name..." style="margin-bottom: 0;">
+                <div class="map-search-results" id="search-results"></div>
+            </div>
+
+            <div id="location-badge-container"></div>
+
+            <div id="map-container" style="height: 350px; border-radius: 8px; margin-bottom: 8px; background: #1a1a1a;">
                 <div id="map" style="width: 100%; height: 100%; border-radius: 8px;"></div>
             </div>
-            <p style="font-size: 12px; color: #666; margin: 0;">Click map to set location, or enter coordinates manually</p>
+            <p style="font-size: 12px; color: #666; margin: 0 0 12px 0;">Click the map or search above to set your venue location</p>
+
+            <input type="hidden" id="venue-lat" value="">
+            <input type="hidden" id="venue-lng" value="">
+            <input type="hidden" id="venue-city" value="">
+            <input type="hidden" id="venue-country" value="">
+
+            <div class="coords-toggle" id="coords-toggle" onclick="toggleCoords()">Show coordinates</div>
+            <div class="coords-detail" id="coords-detail"></div>
         </div>
 
         <!-- Leaflet CSS/JS for map -->
@@ -950,42 +1029,153 @@ async def process_page():
             let venueId = 'demo_venue';
             let map = null;
             let marker = null;
+            let searchTimeout = null;
 
-            // Initialize map centered on Africa
+            // Initialize map centered on South Africa with dark tiles
             document.addEventListener('DOMContentLoaded', function() {
-                map = L.map('map').setView([-26.2041, 28.0473], 4);  // Centered on South Africa
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; OpenStreetMap contributors'
+                map = L.map('map').setView([-26.2041, 28.0473], 5);
+                L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', {
+                    maxZoom: 20,
+                    attribution: '&copy; Stadia Maps, &copy; OpenStreetMap'
                 }).addTo(map);
 
-                // Click to set location
+                // Click to set location + reverse geocode
                 map.on('click', function(e) {
-                    setLocation(e.latlng.lat, e.latlng.lng);
+                    placePin(e.latlng.lat, e.latlng.lng);
+                    reverseGeocode(e.latlng.lat, e.latlng.lng);
                 });
 
-                // Update map when inputs change
-                document.getElementById('venue-lat').addEventListener('change', updateMapFromInputs);
-                document.getElementById('venue-lng').addEventListener('change', updateMapFromInputs);
+                // Address search with debounce
+                const searchInput = document.getElementById('location-search');
+                searchInput.addEventListener('input', function() {
+                    clearTimeout(searchTimeout);
+                    const q = this.value.trim();
+                    if (q.length < 3) {
+                        document.getElementById('search-results').style.display = 'none';
+                        return;
+                    }
+                    searchTimeout = setTimeout(() => searchAddress(q), 350);
+                });
+                searchInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') {
+                        document.getElementById('search-results').style.display = 'none';
+                    }
+                });
+                // Close results on click outside
+                document.addEventListener('click', function(e) {
+                    if (!e.target.closest('.map-search-container')) {
+                        document.getElementById('search-results').style.display = 'none';
+                    }
+                });
             });
 
-            function setLocation(lat, lng) {
-                document.getElementById('venue-lat').value = lat.toFixed(6);
-                document.getElementById('venue-lng').value = lng.toFixed(6);
+            async function searchAddress(query) {
+                try {
+                    const resp = await fetch(
+                        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
+                        { headers: { 'Accept-Language': 'en' } }
+                    );
+                    const results = await resp.json();
+                    const container = document.getElementById('search-results');
+                    if (results.length === 0) {
+                        container.innerHTML = '<div class="result-item" style="color:#666;">No results found</div>';
+                        container.style.display = 'block';
+                        return;
+                    }
+                    container.innerHTML = results.map(r => `
+                        <div class="result-item" onclick="selectSearchResult(${r.lat}, ${r.lon}, '${(r.address?.city || r.address?.town || r.address?.village || r.address?.state || '').replace(/'/g, "\\'")}', '${(r.address?.country || '').replace(/'/g, "\\'")}', '${r.display_name.replace(/'/g, "\\'")}')">
+                            ${r.display_name}
+                        </div>
+                    `).join('');
+                    container.style.display = 'block';
+                } catch(e) {
+                    console.error('Search failed:', e);
+                }
+            }
+
+            function selectSearchResult(lat, lng, city, country, displayName) {
+                document.getElementById('search-results').style.display = 'none';
+                document.getElementById('location-search').value = displayName;
+                document.getElementById('venue-city').value = city;
+                document.getElementById('venue-country').value = country;
+                placePin(lat, lng);
+                updateLocationBadge(city, country, lat, lng);
+            }
+
+            async function reverseGeocode(lat, lng) {
+                try {
+                    const resp = await fetch(
+                        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`,
+                        { headers: { 'Accept-Language': 'en' } }
+                    );
+                    const data = await resp.json();
+                    if (data.address) {
+                        const city = data.address.city || data.address.town || data.address.village || data.address.state || '';
+                        const country = data.address.country || '';
+                        document.getElementById('venue-city').value = city;
+                        document.getElementById('venue-country').value = country;
+                        document.getElementById('location-search').value = data.display_name || '';
+                        updateLocationBadge(city, country, lat, lng);
+                    }
+                } catch(e) {
+                    // Still set coords even if reverse geocode fails
+                    updateLocationBadge('', '', lat, lng);
+                }
+            }
+
+            function placePin(lat, lng) {
+                document.getElementById('venue-lat').value = lat;
+                document.getElementById('venue-lng').value = lng;
 
                 if (marker) {
                     marker.setLatLng([lat, lng]);
                 } else {
-                    marker = L.marker([lat, lng]).addTo(map);
+                    marker = L.marker([lat, lng], {
+                        draggable: true
+                    }).addTo(map);
+                    // Re-geocode on drag end
+                    marker.on('dragend', function() {
+                        const pos = marker.getLatLng();
+                        document.getElementById('venue-lat').value = pos.lat;
+                        document.getElementById('venue-lng').value = pos.lng;
+                        reverseGeocode(pos.lat, pos.lng);
+                    });
                 }
-                map.setView([lat, lng], 12);
+                map.setView([lat, lng], Math.max(map.getZoom(), 13));
+                updateCoordsDetail(lat, lng);
             }
 
-            function updateMapFromInputs() {
-                const lat = parseFloat(document.getElementById('venue-lat').value);
-                const lng = parseFloat(document.getElementById('venue-lng').value);
-                if (!isNaN(lat) && !isNaN(lng)) {
-                    setLocation(lat, lng);
-                }
+            function updateLocationBadge(city, country, lat, lng) {
+                const parts = [city, country].filter(Boolean);
+                const label = parts.length > 0 ? parts.join(', ') : `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                document.getElementById('location-badge-container').innerHTML = `
+                    <div class="location-badge">
+                        <span>&#x1F4CD;</span> ${label}
+                        <span class="remove-pin" onclick="clearLocation()" title="Remove pin">&times;</span>
+                    </div>
+                `;
+            }
+
+            function clearLocation() {
+                document.getElementById('venue-lat').value = '';
+                document.getElementById('venue-lng').value = '';
+                document.getElementById('venue-city').value = '';
+                document.getElementById('venue-country').value = '';
+                document.getElementById('location-search').value = '';
+                document.getElementById('location-badge-container').innerHTML = '';
+                document.getElementById('coords-detail').style.display = 'none';
+                if (marker) { map.removeLayer(marker); marker = null; }
+            }
+
+            function toggleCoords() {
+                const el = document.getElementById('coords-detail');
+                const isHidden = el.style.display === 'none' || el.style.display === '';
+                el.style.display = isHidden ? 'block' : 'none';
+                document.getElementById('coords-toggle').textContent = isHidden ? 'Hide coordinates' : 'Show coordinates';
+            }
+
+            function updateCoordsDetail(lat, lng) {
+                document.getElementById('coords-detail').innerHTML = `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`;
             }
 
             function getVenueData() {
@@ -3180,6 +3370,53 @@ async def map_view():
                 border-radius: 4px;
                 font-size: 12px;
             }
+            .view-toggle {
+                position: absolute;
+                top: 80px;
+                right: 10px;
+                z-index: 1000;
+                display: flex;
+                background: rgba(0,0,0,0.8);
+                border-radius: 8px;
+                overflow: hidden;
+            }
+            .view-toggle button {
+                padding: 8px 16px;
+                background: transparent;
+                color: #888;
+                border: none;
+                cursor: pointer;
+                font-size: 13px;
+                transition: all 0.2s;
+            }
+            .view-toggle button.active {
+                background: #0066ff;
+                color: #fff;
+            }
+            .view-toggle button:hover:not(.active) { color: #fff; }
+            .cohort-panel {
+                position: absolute;
+                top: 130px;
+                right: 10px;
+                z-index: 1000;
+                background: rgba(0,0,0,0.8);
+                padding: 12px;
+                border-radius: 8px;
+                min-width: 180px;
+            }
+            .cohort-panel h4 { margin-bottom: 8px; color: #fff; font-size: 13px; }
+            .cohort-tag {
+                display: inline-block;
+                padding: 4px 10px;
+                border-radius: 12px;
+                font-size: 11px;
+                margin: 2px;
+                cursor: pointer;
+                border: 1px solid transparent;
+                transition: all 0.2s;
+            }
+            .cohort-tag:hover { opacity: 0.8; }
+            .cohort-tag.active { border-color: #fff; }
             .stats-panel {
                 position: absolute;
                 top: 80px;
@@ -3216,8 +3453,20 @@ async def map_view():
 
         <div id="map"></div>
 
+        <div class="view-toggle">
+            <button class="active" id="btn-markers" onclick="setView('markers')">Markers</button>
+            <button id="btn-heatmap" onclick="setView('heatmap')">Heatmap</button>
+        </div>
+
+        <div class="cohort-panel" id="cohort-panel">
+            <h4>Cohorts</h4>
+            <div id="cohort-tags">
+                <span class="cohort-tag active" style="background: #3b82f6; color: #fff;" onclick="filterCohort('all')">All</span>
+            </div>
+        </div>
+
         <div class="stats-panel" id="stats-panel">
-            <h4>🗺️ Overview</h4>
+            <h4>Overview</h4>
             <div class="stat-row">
                 <span>Total Venues</span>
                 <span class="stat-value" id="total-venues">-</span>
@@ -3253,100 +3502,193 @@ async def map_view():
         </div>
 
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
         <script>
-            // Initialize map centered on Africa with better styling
-            const map = L.map('map', {
-                zoomControl: false  // We'll add custom position
-            }).setView([-1.2921, 20.0], 3);
-
-            // Add zoom control to bottom right
+            const map = L.map('map', { zoomControl: false }).setView([-1.2921, 20.0], 3);
             L.control.zoom({ position: 'bottomleft' }).addTo(map);
-
-            // Use Stadia Alidade Smooth Dark (free, beautiful)
             L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', {
                 maxZoom: 20,
                 attribution: '&copy; Stadia Maps, &copy; OpenMapTiles, &copy; OpenStreetMap'
             }).addTo(map);
 
-            // Fetch venues and analytics
+            let allVenues = [];
+            let markerLayer = L.layerGroup().addTo(map);
+            let heatLayer = null;
+            let currentView = 'markers';
+            let currentCohort = 'all';
+
+            // Cohort colors for visual grouping
+            const cohortColors = ['#3b82f6','#22c55e','#eab308','#f97316','#ec4899','#8b5cf6','#06b6d4','#f43f5e'];
+
+            let allCohorts = [];
+
             async function loadVenues() {
                 try {
                     const response = await fetch('/api/map/venues');
                     const raw = await response.json();
                     const data = raw.data || raw;
+                    allVenues = data.venues || [];
+                    allCohorts = data.cohorts || [];
 
                     // Update stats
-                    document.getElementById('total-venues').textContent = data.venues.length;
+                    document.getElementById('total-venues').textContent = allVenues.length;
                     document.getElementById('total-visitors').textContent =
-                        data.venues.reduce((sum, v) => sum + (v.visitors || 0), 0).toLocaleString();
-
-                    const countries = new Set(data.venues.map(v => v.country).filter(c => c));
+                        allVenues.reduce((sum, v) => sum + (v.visitors || 0), 0).toLocaleString();
+                    const countries = new Set(allVenues.map(v => v.country).filter(c => c));
                     document.getElementById('total-countries').textContent = countries.size || '-';
 
-                    // Add markers with pulse animation for high traffic
-                    data.venues.forEach(venue => {
-                        if (venue.latitude && venue.longitude) {
-                            const color = getMarkerColor(venue.visitors);
-                            const size = Math.max(10, Math.min(25, (venue.visitors || 0) / 3 + 10));
-
-                            // Create custom icon with glow effect
-                            const marker = L.circleMarker([venue.latitude, venue.longitude], {
-                                radius: size,
-                                fillColor: color,
-                                color: color,
-                                weight: 3,
-                                opacity: 0.3,
-                                fillOpacity: 0.9
-                            }).addTo(map);
-
-                            // Add inner dot
-                            L.circleMarker([venue.latitude, venue.longitude], {
-                                radius: size * 0.4,
-                                fillColor: '#fff',
-                                color: '#fff',
-                                weight: 0,
-                                fillOpacity: 0.9
-                            }).addTo(map);
-
-                            const venueTypeIcon = {
-                                'bar': '🍺', 'restaurant': '🍽️', 'cafe': '☕',
-                                'retail': '🛍️', 'nightclub': '🎵', 'hotel': '🏨',
-                                'mall': '🏬', 'other': '📍'
-                            }[venue.venue_type] || '📍';
-
-                            marker.bindPopup(`
-                                <div class="venue-popup">
-                                    <h3>${venueTypeIcon} ${venue.name || venue.id}</h3>
-                                    <p><strong>Type:</strong> ${venue.venue_type || 'Unknown'}</p>
-                                    <p><strong>Location:</strong> ${[venue.city, venue.country].filter(x=>x).join(', ') || 'Not set'}</p>
-                                    <hr style="border: none; border-top: 1px solid #eee; margin: 10px 0;">
-                                    <p><strong>Total Visitors:</strong> <span class="stat">${(venue.visitors || 0).toLocaleString()}</span></p>
-                                    <p><strong>Zone ID:</strong> <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:11px;">${venue.h3_zone || 'N/A'}</code></p>
-                                    <a href="/analytics-dashboard/${venue.id}">View Full Analytics →</a>
-                                </div>
-                            `, { maxWidth: 300 });
-                        }
-                    });
-
-                    // Fit bounds if we have venues
-                    const venuesWithLocation = data.venues.filter(v => v.latitude && v.longitude);
-                    if (venuesWithLocation.length > 0) {
-                        const bounds = L.latLngBounds(
-                            venuesWithLocation.map(v => [v.latitude, v.longitude])
-                        );
-                        map.fitBounds(bounds, { padding: [50, 50] });
-                    }
-
+                    buildCohortTags(allVenues, allCohorts);
+                    renderMarkers(allVenues);
+                    fitBounds(allVenues);
                 } catch (e) {
                     console.error('Failed to load venues:', e);
                 }
             }
 
+            function buildCohortTags(venues, serverCohorts) {
+                const container = document.getElementById('cohort-tags');
+                let html = '<span class="cohort-tag active" style="background:#3b82f6;color:#fff;" onclick="filterCohort(\'all\')">All (' + venues.length + ')</span>';
+
+                // Show server-defined cohorts first
+                if (serverCohorts.length > 0) {
+                    serverCohorts.forEach(c => {
+                        const count = venues.filter(v => (v.cohorts || []).some(vc => vc.id === c.id)).length;
+                        html += ` <span class="cohort-tag" style="background:${c.color}33;color:${c.color};" data-cohort="${c.id}" onclick="filterCohort('cohort:${c.id}')">${c.name} (${count})</span>`;
+                    });
+                }
+
+                // Also show venue types as auto-cohorts
+                const types = [...new Set(venues.map(v => v.venue_type).filter(Boolean))];
+                types.forEach((type, i) => {
+                    const count = venues.filter(v => v.venue_type === type).length;
+                    const color = cohortColors[i % cohortColors.length];
+                    const label = type.charAt(0).toUpperCase() + type.slice(1);
+                    html += ` <span class="cohort-tag" style="background:${color}33;color:${color};" data-type="${type}" onclick="filterCohort('type:${type}')">${label} (${count})</span>`;
+                });
+                container.innerHTML = html;
+            }
+
+            function filterCohort(filter) {
+                currentCohort = filter;
+                document.querySelectorAll('.cohort-tag').forEach(tag => tag.classList.remove('active'));
+
+                let filtered;
+                if (filter === 'all') {
+                    filtered = allVenues;
+                    document.querySelector('.cohort-tag').classList.add('active');
+                } else if (filter.startsWith('cohort:')) {
+                    const cohortId = filter.slice(7);
+                    filtered = allVenues.filter(v => (v.cohorts || []).some(c => c.id === cohortId));
+                    const tag = document.querySelector(`[data-cohort="${cohortId}"]`);
+                    if (tag) tag.classList.add('active');
+                } else if (filter.startsWith('type:')) {
+                    const type = filter.slice(5);
+                    filtered = allVenues.filter(v => v.venue_type === type);
+                    const tag = document.querySelector(`[data-type="${type}"]`);
+                    if (tag) tag.classList.add('active');
+                } else {
+                    filtered = allVenues;
+                }
+
+                if (currentView === 'markers') {
+                    renderMarkers(filtered);
+                } else {
+                    renderHeatmap(filtered);
+                }
+                document.getElementById('total-venues').textContent = filtered.length;
+                document.getElementById('total-visitors').textContent =
+                    filtered.reduce((sum, v) => sum + (v.visitors || 0), 0).toLocaleString();
+            }
+
+            function setView(view) {
+                currentView = view;
+                document.getElementById('btn-markers').classList.toggle('active', view === 'markers');
+                document.getElementById('btn-heatmap').classList.toggle('active', view === 'heatmap');
+                const filtered = currentCohort === 'all' ? allVenues : allVenues.filter(v => v.venue_type === currentCohort);
+                if (view === 'markers') {
+                    if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+                    renderMarkers(filtered);
+                } else {
+                    markerLayer.clearLayers();
+                    renderHeatmap(filtered);
+                }
+            }
+
+            function renderMarkers(venues) {
+                markerLayer.clearLayers();
+                if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+
+                venues.forEach(venue => {
+                    if (!venue.latitude || !venue.longitude) return;
+                    const color = getMarkerColor(venue.visitors);
+                    const size = Math.max(10, Math.min(25, (venue.visitors || 0) / 3 + 10));
+
+                    const outer = L.circleMarker([venue.latitude, venue.longitude], {
+                        radius: size, fillColor: color, color: color,
+                        weight: 3, opacity: 0.3, fillOpacity: 0.9
+                    });
+                    const inner = L.circleMarker([venue.latitude, venue.longitude], {
+                        radius: size * 0.4, fillColor: '#fff', color: '#fff',
+                        weight: 0, fillOpacity: 0.9
+                    });
+
+                    const icon = {'bar':'&#x1F37A;','restaurant':'&#x1F37D;&#xFE0F;','cafe':'&#x2615;','retail':'&#x1F6CD;&#xFE0F;','nightclub':'&#x1F3B5;','hotel':'&#x1F3E8;','mall':'&#x1F3EC;'}[venue.venue_type] || '&#x1F4CD;';
+
+                    outer.bindPopup(`
+                        <div class="venue-popup">
+                            <h3>${icon} ${venue.name || venue.id}</h3>
+                            <p><strong>Type:</strong> ${venue.venue_type || 'Unknown'}</p>
+                            <p><strong>Location:</strong> ${[venue.city, venue.country].filter(x=>x).join(', ') || 'Not set'}</p>
+                            <hr style="border:none;border-top:1px solid #eee;margin:10px 0;">
+                            <p><strong>Total Visitors:</strong> <span class="stat">${(venue.visitors||0).toLocaleString()}</span></p>
+                            <p><strong>Zone:</strong> <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:11px;">${venue.h3_zone||'N/A'}</code></p>
+                            <a href="/analytics-dashboard/${venue.id}">View Full Analytics &#x2192;</a>
+                        </div>
+                    `, { maxWidth: 300 });
+
+                    markerLayer.addLayer(outer);
+                    markerLayer.addLayer(inner);
+                });
+            }
+
+            function renderHeatmap(venues) {
+                if (heatLayer) { map.removeLayer(heatLayer); }
+                const points = venues
+                    .filter(v => v.latitude && v.longitude)
+                    .map(v => [v.latitude, v.longitude, Math.max(v.visitors || 1, 1)]);
+
+                if (points.length === 0) return;
+
+                heatLayer = L.heatLayer(points, {
+                    radius: 35,
+                    blur: 25,
+                    maxZoom: 12,
+                    max: Math.max(...points.map(p => p[2])) || 1,
+                    gradient: {
+                        0.0: '#0a0a2e',
+                        0.25: '#1e3a5f',
+                        0.5: '#2563eb',
+                        0.75: '#eab308',
+                        1.0: '#ef4444'
+                    }
+                }).addTo(map);
+            }
+
+            function fitBounds(venues) {
+                const withLocation = venues.filter(v => v.latitude && v.longitude);
+                if (withLocation.length > 0) {
+                    map.fitBounds(
+                        L.latLngBounds(withLocation.map(v => [v.latitude, v.longitude])),
+                        { padding: [50, 50] }
+                    );
+                }
+            }
+
             function getMarkerColor(visitors) {
-                if (!visitors) return '#6b7280';  // Gray - no data
-                if (visitors >= 50) return '#22c55e';  // Green - high
-                if (visitors >= 10) return '#eab308';  // Yellow - medium
-                return '#3b82f6';  // Blue - low
+                if (!visitors) return '#6b7280';
+                if (visitors >= 50) return '#22c55e';
+                if (visitors >= 10) return '#eab308';
+                return '#3b82f6';
             }
 
             loadVenues();
@@ -3418,10 +3760,11 @@ svg{display:block;margin:0 auto}
 <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div>Learning</div>
 <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>Output</div>
 <div class="legend-item"><div class="legend-dot" style="background:#64748b"></div>Storage</div>
+<div class="legend-item"><div class="legend-dot" style="background:#06b6d4"></div>Security</div>
 </div>
 
 <div class="canvas">
-<svg viewBox="0 0 1540 960" width="1540" height="960" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="0 0 1540 1050" width="1540" height="1050" xmlns="http://www.w3.org/2000/svg">
 <defs>
 <marker id="a" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="7" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 3L0 6z" fill="#334155"/></marker>
 <marker id="ab" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="7" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 3L0 6z" fill="#3b82f6"/></marker>
@@ -3430,11 +3773,11 @@ svg{display:block;margin:0 auto}
 </defs>
 
 <!-- LANE BACKGROUNDS -->
-<rect x="10" y="38" width="290" height="900" rx="10" fill="url(#lane-bg)" stroke="#1e293b" stroke-opacity="0.5"/>
-<rect x="310" y="38" width="290" height="900" rx="10" fill="url(#lane-bg)" stroke="#1e293b" stroke-opacity="0.5"/>
-<rect x="610" y="38" width="290" height="900" rx="10" fill="url(#lane-bg)" stroke="#1e293b" stroke-opacity="0.5"/>
-<rect x="910" y="38" width="290" height="900" rx="10" fill="url(#lane-bg)" stroke="#1e293b" stroke-opacity="0.5"/>
-<rect x="1210" y="38" width="310" height="900" rx="10" fill="url(#lane-bg)" stroke="#1e293b" stroke-opacity="0.5"/>
+<rect x="10" y="38" width="290" height="990" rx="10" fill="url(#lane-bg)" stroke="#1e293b" stroke-opacity="0.5"/>
+<rect x="310" y="38" width="290" height="990" rx="10" fill="url(#lane-bg)" stroke="#1e293b" stroke-opacity="0.5"/>
+<rect x="610" y="38" width="290" height="990" rx="10" fill="url(#lane-bg)" stroke="#1e293b" stroke-opacity="0.5"/>
+<rect x="910" y="38" width="290" height="990" rx="10" fill="url(#lane-bg)" stroke="#1e293b" stroke-opacity="0.5"/>
+<rect x="1210" y="38" width="310" height="990" rx="10" fill="url(#lane-bg)" stroke="#1e293b" stroke-opacity="0.5"/>
 
 <!-- LANE HEADERS -->
 <text x="155" y="62" text-anchor="middle" fill="#3b82f6" font-size="11" font-weight="700" letter-spacing="2">INPUT</text>
@@ -3609,24 +3952,39 @@ svg{display:block;margin:0 auto}
 <rect class="n" data-id="pagination" x="1230" y="682" width="270" height="38" rx="6" fill="#1a0a0f" stroke="#7f1d1d" stroke-width="1"/>
 <text x="1365" y="706" text-anchor="middle" fill="#94a3b8" font-size="11">Pagination (4 endpoints)</text>
 
-<!-- ═══ ROW 5: TESTS ═══ -->
-<rect x="30" y="736" width="1490" height="2" rx="1" fill="#1e293b" opacity="0.4"/>
-<text x="760" y="758" text-anchor="middle" fill="#475569" font-size="10" font-weight="600" letter-spacing="3">TEST COVERAGE</text>
+<!-- ═══ ROW 5: SECURITY & PRIVACY ═══ -->
+<rect x="30" y="736" width="1490" height="2" rx="1" fill="#06b6d4" opacity="0.3"/>
+<text x="760" y="756" text-anchor="middle" fill="#06b6d4" font-size="10" font-weight="600" letter-spacing="3">SECURITY &amp; PRIVACY</text>
 
-<rect class="n" data-id="test-mvp" x="30" y="772" width="250" height="36" rx="6" fill="#071207" stroke="#166534" stroke-width="1"/>
-<text x="155" y="795" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">MVP: 108 tests</text>
-<rect class="n" data-id="test-w1" x="330" y="772" width="250" height="36" rx="6" fill="#071207" stroke="#166534" stroke-width="1"/>
-<text x="455" y="795" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">SIPP Pipeline: 85 tests</text>
-<rect class="n" data-id="test-w2" x="630" y="772" width="250" height="36" rx="6" fill="#071207" stroke="#166534" stroke-width="1"/>
-<text x="755" y="795" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">Training: 68 tests</text>
-<rect class="n" data-id="test-sim" x="930" y="772" width="250" height="36" rx="6" fill="#071207" stroke="#166534" stroke-width="1"/>
-<text x="1055" y="795" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">Chaos Sim: 37 tests</text>
-<rect class="n" data-id="test-prod" x="1230" y="772" width="270" height="36" rx="6" fill="#071207" stroke="#166534" stroke-width="1"/>
-<text x="1365" y="795" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">Production: 46 tests</text>
+<rect class="n" data-id="sec-cors" x="30" y="770" width="250" height="38" rx="6" fill="#051a1e" stroke="#0e7490" stroke-width="1"/>
+<text x="155" y="794" text-anchor="middle" fill="#22d3ee" font-size="11">CORS + Input Validation</text>
+<rect class="n" data-id="sec-domain" x="330" y="770" width="250" height="38" rx="6" fill="#051a1e" stroke="#0e7490" stroke-width="1"/>
+<text x="455" y="794" text-anchor="middle" fill="#22d3ee" font-size="11">URL Domain Whitelist</text>
+<rect class="n" data-id="sec-encrypt" x="630" y="770" width="250" height="38" rx="6" fill="#051a1e" stroke="#0e7490" stroke-width="1"/>
+<text x="755" y="794" text-anchor="middle" fill="#22d3ee" font-size="11">Embedding Encryption</text>
+<rect class="n" data-id="sec-gdpr" x="930" y="770" width="250" height="38" rx="6" fill="#051a1e" stroke="#0e7490" stroke-width="1"/>
+<text x="1055" y="794" text-anchor="middle" fill="#22d3ee" font-size="11">GDPR + Data Retention</text>
+<rect class="n" data-id="sec-audit" x="1230" y="770" width="270" height="38" rx="6" fill="#051a1e" stroke="#0e7490" stroke-width="1"/>
+<text x="1365" y="794" text-anchor="middle" fill="#22d3ee" font-size="11">Audit Logging</text>
+
+<!-- ═══ ROW 6: TESTS ═══ -->
+<rect x="30" y="824" width="1490" height="2" rx="1" fill="#1e293b" opacity="0.4"/>
+<text x="760" y="846" text-anchor="middle" fill="#475569" font-size="10" font-weight="600" letter-spacing="3">TEST COVERAGE</text>
+
+<rect class="n" data-id="test-mvp" x="30" y="860" width="250" height="36" rx="6" fill="#071207" stroke="#166534" stroke-width="1"/>
+<text x="155" y="883" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">MVP: 108 tests</text>
+<rect class="n" data-id="test-w1" x="330" y="860" width="250" height="36" rx="6" fill="#071207" stroke="#166534" stroke-width="1"/>
+<text x="455" y="883" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">SIPP Pipeline: 85 tests</text>
+<rect class="n" data-id="test-w2" x="630" y="860" width="250" height="36" rx="6" fill="#071207" stroke="#166534" stroke-width="1"/>
+<text x="755" y="883" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">Training: 68 tests</text>
+<rect class="n" data-id="test-sim" x="930" y="860" width="250" height="36" rx="6" fill="#071207" stroke="#166534" stroke-width="1"/>
+<text x="1055" y="883" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">Chaos Sim: 37 tests</text>
+<rect class="n" data-id="test-prod" x="1230" y="860" width="270" height="36" rx="6" fill="#071207" stroke="#166534" stroke-width="1"/>
+<text x="1365" y="883" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">Production: 46 tests</text>
 
 <!-- TOTAL BADGE -->
-<rect x="610" y="826" width="300" height="34" rx="17" fill="#22c55e" fill-opacity="0.08" stroke="#22c55e" stroke-width="1.5" stroke-opacity="0.4"/>
-<text x="760" y="848" text-anchor="middle" fill="#4ade80" font-size="14" font-weight="700" letter-spacing="1">344 TESTS  -  ALL GREEN</text>
+<rect x="610" y="914" width="300" height="34" rx="17" fill="#22c55e" fill-opacity="0.08" stroke="#22c55e" stroke-width="1.5" stroke-opacity="0.4"/>
+<text x="760" y="936" text-anchor="middle" fill="#4ade80" font-size="14" font-weight="700" letter-spacing="1">344 TESTS  -  ALL GREEN</text>
 
 </svg>
 </div>
@@ -3683,7 +4041,12 @@ const D={
 "test-w1":{t:"Week 1 Tests",f:"sipp-pipeline/tests/",d:"85 tests: zones, interactions, dedup, verifier, torture."},
 "test-w2":{t:"Week 2 Tests",f:"sipp-pipeline/training/tests/",d:"68 tests: merge, remap, SAHI, config, parse, NMS, roundtrips."},
 "test-sim":{t:"Chaos Sim",f:"sipp-pipeline/tests/torture_sim_bar.py",d:"37 tests: 5000-frame sim, tracker drift, backpressure, VLM chaos, drops."},
-"test-prod":{t:"Production Torture",f:"sipp-pipeline/tests/torture_production.py",d:"46 tests: 7 phases, 30 adversarial payloads, 10K marathon, security."}
+"test-prod":{t:"Production Torture",f:"sipp-pipeline/tests/torture_production.py",d:"46 tests: 7 phases, 30 adversarial payloads, 10K marathon, security."},
+"sec-cors":{t:"CORS Policy",f:"app/__init__.py",d:"Configurable origins via CORS_ORIGINS env var. Credentials disabled. All methods/headers allowed for API flexibility."},
+"sec-domain":{t:"URL Domain Whitelist",f:"app/config.py",d:"Video downloads restricted to youtube.com, youtu.be. Blocks SSRF to internal networks."},
+"sec-encrypt":{t:"Embedding Encryption",f:"app/video/embeddings.py",d:"Fernet AES-128 symmetric encryption for 512-d face embeddings at rest. Key via EMBEDDING_ENCRYPTION_KEY env var."},
+"sec-gdpr":{t:"GDPR Compliance",f:"app/routers/visitors.py",d:"90-day embedding retention policy. DELETE /visitors/{venue_id}/{visitor_id} for right-to-erasure. Auto-purge background task."},
+"sec-audit":{t:"Audit Logging",f:"app/database.py",d:"All data access and deletions logged with timestamp, actor, action, resource. Separate audit_log table."}
 };
 const tt=document.getElementById('tooltip'),dc=document.getElementById('dc');
 document.querySelectorAll('.n').forEach(n=>{

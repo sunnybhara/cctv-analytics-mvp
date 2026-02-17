@@ -118,6 +118,25 @@ visitor_embeddings = sqlalchemy.Table(
     sqlalchemy.Column("quality_score", sqlalchemy.Float, default=0),
 )
 
+# Cohorts table - groups of venues for comparative analytics
+cohorts = sqlalchemy.Table(
+    "cohorts",
+    metadata,
+    sqlalchemy.Column("id", sqlalchemy.String(50), primary_key=True),
+    sqlalchemy.Column("name", sqlalchemy.String(100)),
+    sqlalchemy.Column("color", sqlalchemy.String(7), default="#3b82f6"),
+    sqlalchemy.Column("created_at", sqlalchemy.DateTime, default=datetime.utcnow),
+)
+
+# Cohort membership - many-to-many link between venues and cohorts
+cohort_members = sqlalchemy.Table(
+    "cohort_members",
+    metadata,
+    sqlalchemy.Column("cohort_id", sqlalchemy.String(50), index=True),
+    sqlalchemy.Column("venue_id", sqlalchemy.String(50), index=True),
+    sqlalchemy.UniqueConstraint("cohort_id", "venue_id"),
+)
+
 engine = sqlalchemy.create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}

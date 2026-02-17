@@ -24,7 +24,7 @@ class EventIn(BaseModel):
 class EventBatch(BaseModel):
     """Batch of events from edge device."""
     venue_id: str
-    api_key: str
+    api_key: Optional[str] = None  # Deprecated: auth is via X-API-Key header
     events: List[EventIn]
 
 
@@ -50,6 +50,14 @@ class VenueCreate(BaseModel):
     city: Optional[str] = None
     country: Optional[str] = None
     venue_type: Optional[str] = None
+
+
+class CohortCreate(BaseModel):
+    """Create a named cohort for grouping venues."""
+    id: str
+    name: str
+    color: Optional[str] = "#3b82f6"
+    venue_ids: List[str] = []
 
 
 class StatsResponse(BaseModel):

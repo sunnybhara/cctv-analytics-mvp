@@ -41,7 +41,12 @@ async def update_job_status(job_id: str, **kwargs):
 
 
 def _process_queue_sync():
-    """Background worker that processes the job queue (runs in thread)."""
+    """Background worker that processes the job queue (runs in thread).
+
+    Fixes applied:
+    - _queue_processor_running always reset in finally (prevents permanent death)
+    - Re-check for pending jobs after setting flag to False (closes race window)
+    """
     import app.state as state
 
     loop = asyncio.new_event_loop()
@@ -62,8 +67,8 @@ def _process_queue_sync():
             job = loop.run_until_complete(db.fetch_one(query))
 
             if not job:
-                with state._queue_lock:
-                    state._queue_processor_running = False
+                # No pending jobs — exit the loop.
+                # The finally block resets _queue_processor_running.
                 break
 
             job_id = job["id"]
@@ -122,8 +127,29 @@ def _process_queue_sync():
                     pass
 
     finally:
+        # ALWAYS reset the flag — even on unhandled exceptions.
+        # This prevents the queue from permanently dying.
+        with state._queue_lock:
+            state._queue_processor_running = False
+
         loop.run_until_complete(db.disconnect())
         loop.close()
+
+        # Re-check: if new jobs arrived while we were shutting down,
+        # start a new worker thread to pick them up (closes the race window).
+        try:
+            check_loop = asyncio.new_event_loop()
+            check_db = databases.Database(DATABASE_URL)
+            check_loop.run_until_complete(check_db.connect())
+            pending = check_loop.run_until_complete(check_db.fetch_one(
+                sqlalchemy.select(jobs.c.id).where(jobs.c.status == "pending").limit(1)
+            ))
+            check_loop.run_until_complete(check_db.disconnect())
+            check_loop.close()
+            if pending:
+                ensure_queue_processor_running()
+        except Exception:
+            pass  # Best-effort re-check
 
 
 def ensure_queue_processor_running():

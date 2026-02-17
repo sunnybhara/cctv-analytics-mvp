@@ -8,7 +8,8 @@ import secrets
 from datetime import datetime
 
 import sqlalchemy
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from app.auth import require_api_key, verify_venue_access
 
 from app.database import database, venues, events, alerts, jobs, visitor_embeddings
 from app.responses import success_response
@@ -92,8 +93,9 @@ async def list_venues(
 
 
 @router.delete("/venues/{venue_id}")
-async def delete_venue(venue_id: str):
+async def delete_venue(venue_id: str, auth_venue_id: str = Depends(require_api_key)):
     """Delete a venue and all its associated data (including orphaned records)."""
+    verify_venue_access(auth_venue_id, venue_id)
     # Always clean associated data even if venue row is missing
     await database.execute(events.delete().where(events.c.venue_id == venue_id))
     await database.execute(alerts.delete().where(alerts.c.venue_id == venue_id))

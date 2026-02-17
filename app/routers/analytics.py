@@ -10,7 +10,7 @@ from typing import Optional
 import sqlalchemy
 from sqlalchemy import func
 from fastapi import APIRouter, Query, Depends
-from app.auth import require_api_key
+from app.auth import require_api_key, verify_venue_access
 
 from app.database import database, events
 from app.config import DATABASE_URL
@@ -24,9 +24,10 @@ router = APIRouter()
 async def get_analytics(
     venue_id: str,
     days: int = Query(default=7, ge=1, le=90),
-    _api_key: str = Depends(require_api_key)
+    auth_venue_id: str = Depends(require_api_key)
 ):
     """Get analytics for a venue."""
+    verify_venue_access(auth_venue_id, venue_id)
 
     since = datetime.utcnow() - timedelta(days=days)
 

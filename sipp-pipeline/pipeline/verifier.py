@@ -112,7 +112,10 @@ def _safe_parse(output: str) -> dict:
             return {"action": "unknown", "confidence": 0.0, "description": "VLM returned non-object JSON"}
         if "action" not in result:
             result["action"] = "unknown"
-        if "confidence" not in result:
+        # Coerce confidence to float — VLM may return "high", null, or bool
+        try:
+            result["confidence"] = float(result.get("confidence", 0.0))
+        except (TypeError, ValueError):
             result["confidence"] = 0.0
         return result
     except (json.JSONDecodeError, TypeError):
