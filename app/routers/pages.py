@@ -1071,26 +1071,57 @@ async def process_page():
 
             async function searchAddress(query) {
                 try {
-                    const resp = await fetch(
-                        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
-                        { headers: { 'Accept-Language': 'en' } }
-                    );
-                    const results = await resp.json();
                     const container = document.getElementById('search-results');
+                    container.innerHTML = '<div class="result-item" style="color:#666;">Searching...</div>';
+                    container.style.display = 'block';
+
+                    let results = await nominatimSearch(query);
+
+                    // If no results, try simplifying: drop words that look like business names
                     if (results.length === 0) {
-                        container.innerHTML = '<div class="result-item" style="color:#666;">No results found</div>';
-                        container.style.display = 'block';
+                        const simplified = query
+                            .replace(/[&,]/g, ' ')
+                            .split(/\s+/)
+                            .filter(w => w.length > 2)
+                            .slice(-3)  // keep last few words (usually road/area/country)
+                            .join(' ');
+                        if (simplified !== query && simplified.length >= 3) {
+                            results = await nominatimSearch(simplified);
+                        }
+                    }
+
+                    if (results.length === 0) {
+                        container.innerHTML = '<div class="result-item" style="color:#666;">No results — try a road name, area, or city</div>';
                         return;
                     }
-                    container.innerHTML = results.map(r => `
-                        <div class="result-item" onclick="selectSearchResult(${r.lat}, ${r.lon}, '${(r.address?.city || r.address?.town || r.address?.village || r.address?.state || '').replace(/'/g, "\\'")}', '${(r.address?.country || '').replace(/'/g, "\\'")}', '${r.display_name.replace(/'/g, "\\'")}')">
+                    container.innerHTML = results.map((r, i) => `
+                        <div class="result-item" data-idx="${i}">
                             ${r.display_name}
                         </div>
                     `).join('');
-                    container.style.display = 'block';
+                    // Store results and use click delegation (avoids quote-escaping bugs)
+                    container._results = results;
+                    container.querySelectorAll('.result-item[data-idx]').forEach(el => {
+                        el.addEventListener('click', function() {
+                            const r = container._results[parseInt(this.dataset.idx)];
+                            const city = r.address?.city || r.address?.town || r.address?.village || r.address?.state || '';
+                            const country = r.address?.country || '';
+                            selectSearchResult(parseFloat(r.lat), parseFloat(r.lon), city, country, r.display_name);
+                        });
+                    });
                 } catch(e) {
                     console.error('Search failed:', e);
+                    document.getElementById('search-results').innerHTML =
+                        '<div class="result-item" style="color:#f87171;">Search failed — click the map instead</div>';
                 }
+            }
+
+            async function nominatimSearch(q) {
+                const resp = await fetch(
+                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5&addressdetails=1`,
+                    { headers: { 'Accept-Language': 'en' } }
+                );
+                return await resp.json();
             }
 
             function selectSearchResult(lat, lng, city, country, displayName) {
