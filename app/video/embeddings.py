@@ -4,11 +4,11 @@ Visitor Embedding Database Operations
 Synchronous DB operations for visitor embeddings, used by worker threads.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import sqlalchemy
 
-from app.config import DATABASE_URL
+from app.config import DATABASE_URL, EMBEDDING_RETENTION_DAYS
 from app.database import visitor_embeddings
 
 # Shared sync engine (created once, reused)
@@ -28,15 +28,22 @@ def _get_sync_engine(db_url: str = None):
 
 
 def load_venue_embeddings_sync(venue_id: str, db_url: str = None):
-    """Load all embeddings for a venue (synchronous, for use in threads)."""
+    """Load non-expired embeddings for a venue (synchronous, for use in threads).
+
+    Filters out embeddings older than EMBEDDING_RETENTION_DAYS as defense-in-depth
+    (expired embeddings may still exist between purge cycles).
+    """
     engine = _get_sync_engine(db_url)
     embeddings = []
+    query = sqlalchemy.select(visitor_embeddings).where(
+        visitor_embeddings.c.venue_id == venue_id
+    )
+    # Filter expired embeddings on load
+    if EMBEDDING_RETENTION_DAYS > 0:
+        cutoff = datetime.utcnow() - timedelta(days=EMBEDDING_RETENTION_DAYS)
+        query = query.where(visitor_embeddings.c.last_seen >= cutoff)
     with engine.connect() as conn:
-        result = conn.execute(
-            sqlalchemy.select(visitor_embeddings).where(
-                visitor_embeddings.c.venue_id == venue_id
-            )
-        )
+        result = conn.execute(query)
         for row in result:
             embeddings.append(dict(row._mapping))
     return embeddings
@@ -92,3 +99,31 @@ def update_visitor_embedding_sync(
             )
         )
         conn.commit()
+
+
+def purge_expired_embeddings_sync(db_url: str = None, retention_days: int = None, venue_id: str = None):
+    """Delete embeddings older than retention_days.
+
+    Args:
+        db_url: Database URL (uses default if None)
+        retention_days: Override for EMBEDDING_RETENTION_DAYS (uses config if None)
+        venue_id: If set, only purge for this venue
+
+    Returns:
+        Number of deleted rows
+    """
+    days = retention_days if retention_days is not None else EMBEDDING_RETENTION_DAYS
+    if days <= 0:
+        return 0
+
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    engine = _get_sync_engine(db_url)
+
+    condition = visitor_embeddings.c.last_seen < cutoff
+    if venue_id:
+        condition = condition & (visitor_embeddings.c.venue_id == venue_id)
+
+    with engine.connect() as conn:
+        result = conn.execute(visitor_embeddings.delete().where(condition))
+        conn.commit()
+        return result.rowcount

@@ -14,3 +14,4 @@ processing_jobs: Dict[str, Dict[str, Any]] = {}
 # Batch queue state
 _queue_processor_running = False
 _queue_lock = threading.Lock()
+_active_workers = 0

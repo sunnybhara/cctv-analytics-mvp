@@ -4104,3 +4104,339 @@ dc.scrollIntoView({behavior:'smooth',block:'nearest'});
 </html>
 """
 
+
+@router.get("/venues/{venue_id}/zones", response_class=HTMLResponse)
+async def zone_calibration_page(venue_id: str):
+    """Zone calibration page — draw polygon zones on a reference frame."""
+    safe_id = html.escape(venue_id)
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zone Calibration — {safe_id}</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{background:#0f172a;color:#e2e8f0;font-family:system-ui,-apple-system,sans-serif;padding:20px}}
+.header{{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}}
+h1{{font-size:1.4rem;color:#f8fafc}}
+.subtitle{{color:#94a3b8;font-size:0.85rem;margin-top:4px}}
+.layout{{display:flex;gap:20px;height:calc(100vh - 120px)}}
+.canvas-wrap{{flex:1;background:#1e293b;border-radius:12px;padding:16px;position:relative;overflow:hidden}}
+canvas{{cursor:crosshair;border-radius:8px;display:block;max-width:100%;max-height:100%}}
+.sidebar{{width:300px;display:flex;flex-direction:column;gap:12px}}
+.zone-list{{flex:1;background:#1e293b;border-radius:12px;padding:16px;overflow-y:auto}}
+.zone-item{{background:#334155;border-radius:8px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px}}
+.zone-swatch{{width:20px;height:20px;border-radius:4px;flex-shrink:0}}
+.zone-name{{flex:1;font-size:0.9rem}}
+.zone-pts{{color:#64748b;font-size:0.75rem}}
+.zone-del{{background:none;border:none;color:#ef4444;cursor:pointer;font-size:1.1rem;padding:2px 6px}}
+.controls{{background:#1e293b;border-radius:12px;padding:16px}}
+.btn{{display:inline-block;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-size:0.85rem;font-weight:600;transition:background 0.2s}}
+.btn-primary{{background:#3b82f6;color:#fff}}.btn-primary:hover{{background:#2563eb}}
+.btn-danger{{background:#dc2626;color:#fff}}.btn-danger:hover{{background:#b91c1c}}
+.btn-outline{{background:transparent;border:1px solid #475569;color:#94a3b8}}.btn-outline:hover{{background:#334155}}
+.form-row{{margin-bottom:12px}}
+label{{display:block;font-size:0.8rem;color:#94a3b8;margin-bottom:4px}}
+input[type=text],input[type=color]{{background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e2e8f0;padding:6px 10px;width:100%;font-size:0.85rem}}
+input[type=color]{{height:36px;padding:2px}}
+.status{{padding:8px 12px;border-radius:8px;font-size:0.8rem;margin-top:8px;text-align:center}}
+.status-ok{{background:#064e3b;color:#6ee7b7}}
+.status-err{{background:#7f1d1d;color:#fca5a5}}
+.instructions{{background:#1e293b;border-radius:12px;padding:12px 16px;font-size:0.8rem;color:#94a3b8;line-height:1.6}}
+.ref-upload{{margin-bottom:12px}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div><h1>Zone Calibration</h1><div class="subtitle">Venue: {safe_id}</div></div>
+  <a href="/venues" class="btn btn-outline">Back to Venues</a>
+</div>
+
+<div class="layout">
+  <div class="canvas-wrap">
+    <div class="ref-upload" id="refUpload">
+      <label>Load reference frame (screenshot or video still):</label>
+      <input type="file" accept="image/*,video/*" id="refFile" style="margin-top:6px;color:#94a3b8;font-size:0.85rem">
+    </div>
+    <canvas id="zoneCanvas" width="640" height="480"></canvas>
+  </div>
+
+  <div class="sidebar">
+    <div class="instructions">
+      <strong>How to use:</strong><br>
+      1. Upload a reference image or video frame<br>
+      2. Click on the canvas to place polygon vertices<br>
+      3. Click the first point to close the polygon<br>
+      4. Name the zone and pick a color<br>
+      5. Save when done
+    </div>
+
+    <div class="controls">
+      <div class="form-row">
+        <label>Zone Name</label>
+        <input type="text" id="zoneName" placeholder="e.g. bar, seating, entrance">
+      </div>
+      <div class="form-row">
+        <label>Zone Color</label>
+        <input type="color" id="zoneColor" value="#3b82f6">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-outline" onclick="cancelDrawing()">Cancel Drawing</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-primary" onclick="saveZones()">Save Zones</button>
+        <button class="btn btn-danger" onclick="clearAll()">Clear All</button>
+      </div>
+      <div id="status"></div>
+    </div>
+
+    <div class="zone-list" id="zoneList">
+      <div style="color:#64748b;font-size:0.8rem;text-align:center;padding:20px">No zones defined</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const venueId = '{safe_id}';
+const canvas = document.getElementById('zoneCanvas');
+const ctx = canvas.getContext('2d');
+let bgImage = null;
+let zones = [];
+let currentPoints = [];
+let refWidth = 640, refHeight = 480;
+const MAX_ZONES = 10;
+
+const apiKey = localStorage.getItem('api_key') || 'test-key-123';
+
+// Load reference image
+document.getElementById('refFile').addEventListener('change', function(e) {{
+  const file = e.target.files[0];
+  if (!file) return;
+
+  if (file.type.startsWith('video/')) {{
+    const video = document.createElement('video');
+    video.src = URL.createObjectURL(file);
+    video.onloadeddata = () => {{
+      video.currentTime = 1;
+    }};
+    video.onseeked = () => {{
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      refWidth = video.videoWidth;
+      refHeight = video.videoHeight;
+      bgImage = video;
+      redraw();
+      URL.revokeObjectURL(video.src);
+    }};
+  }} else {{
+    const img = new Image();
+    img.onload = () => {{
+      canvas.width = img.width;
+      canvas.height = img.height;
+      refWidth = img.width;
+      refHeight = img.height;
+      bgImage = img;
+      redraw();
+    }};
+    img.src = URL.createObjectURL(file);
+  }}
+}});
+
+// Canvas click — add point
+canvas.addEventListener('click', function(e) {{
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const x = (e.clientX - rect.left) * scaleX;
+  const y = (e.clientY - rect.top) * scaleY;
+
+  if (zones.length >= MAX_ZONES && currentPoints.length === 0) {{
+    showStatus('Max ' + MAX_ZONES + ' zones allowed', true);
+    return;
+  }}
+
+  // Close polygon if clicking near first point
+  if (currentPoints.length >= 3) {{
+    const dx = x - currentPoints[0][0];
+    const dy = y - currentPoints[0][1];
+    if (Math.sqrt(dx*dx + dy*dy) < 15) {{
+      finishZone();
+      return;
+    }}
+  }}
+
+  currentPoints.push([Math.round(x), Math.round(y)]);
+  redraw();
+}});
+
+// Mouse move — show preview line
+canvas.addEventListener('mousemove', function(e) {{
+  if (currentPoints.length === 0) return;
+  redraw();
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const x = (e.clientX - rect.left) * scaleX;
+  const y = (e.clientY - rect.top) * scaleY;
+  const last = currentPoints[currentPoints.length - 1];
+  ctx.beginPath();
+  ctx.moveTo(last[0], last[1]);
+  ctx.lineTo(x, y);
+  ctx.strokeStyle = '#ffffff44';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([5, 5]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}});
+
+function finishZone() {{
+  const name = document.getElementById('zoneName').value.trim() || 'Zone ' + (zones.length + 1);
+  const color = document.getElementById('zoneColor').value;
+  zones.push({{ name, color, points: [...currentPoints] }});
+  currentPoints = [];
+  document.getElementById('zoneName').value = '';
+  renderZoneList();
+  redraw();
+}}
+
+function cancelDrawing() {{
+  currentPoints = [];
+  redraw();
+}}
+
+function clearAll() {{
+  zones = [];
+  currentPoints = [];
+  renderZoneList();
+  redraw();
+}}
+
+function deleteZone(idx) {{
+  zones.splice(idx, 1);
+  renderZoneList();
+  redraw();
+}}
+
+function redraw() {{
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Background
+  if (bgImage) {{
+    ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+  }} else {{
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#475569';
+    ctx.font = '16px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('Upload a reference image above', canvas.width/2, canvas.height/2);
+  }}
+
+  // Draw saved zones
+  zones.forEach(z => {{
+    ctx.beginPath();
+    z.points.forEach((p, i) => i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1]));
+    ctx.closePath();
+    ctx.fillStyle = z.color + '33';
+    ctx.fill();
+    ctx.strokeStyle = z.color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Label
+    const cx = z.points.reduce((s, p) => s + p[0], 0) / z.points.length;
+    const cy = z.points.reduce((s, p) => s + p[1], 0) / z.points.length;
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 13px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText(z.name, cx, cy);
+  }});
+
+  // Draw current polygon being drawn
+  if (currentPoints.length > 0) {{
+    ctx.beginPath();
+    currentPoints.forEach((p, i) => i === 0 ? ctx.moveTo(p[0], p[1]) : ctx.lineTo(p[0], p[1]));
+    ctx.strokeStyle = '#22c55e';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Draw vertices
+    currentPoints.forEach((p, i) => {{
+      ctx.beginPath();
+      ctx.arc(p[0], p[1], i === 0 ? 8 : 5, 0, Math.PI * 2);
+      ctx.fillStyle = i === 0 ? '#22c55e' : '#ffffff';
+      ctx.fill();
+    }});
+  }}
+}}
+
+function renderZoneList() {{
+  const el = document.getElementById('zoneList');
+  if (zones.length === 0) {{
+    el.innerHTML = '<div style="color:#64748b;font-size:0.8rem;text-align:center;padding:20px">No zones defined</div>';
+    return;
+  }}
+  el.innerHTML = zones.map((z, i) =>
+    '<div class="zone-item">' +
+    '<div class="zone-swatch" style="background:' + z.color + '"></div>' +
+    '<span class="zone-name">' + z.name + '</span>' +
+    '<span class="zone-pts">' + z.points.length + ' pts</span>' +
+    '<button class="zone-del" onclick="deleteZone(' + i + ')">x</button>' +
+    '</div>'
+  ).join('');
+}}
+
+async function saveZones() {{
+  if (zones.length === 0) {{
+    showStatus('Draw at least one zone first', true);
+    return;
+  }}
+  try {{
+    const resp = await fetch('/venues/' + venueId + '/zones', {{
+      method: 'PUT',
+      headers: {{ 'Content-Type': 'application/json', 'X-API-Key': apiKey }},
+      body: JSON.stringify({{
+        zones: zones,
+        reference_frame_width: refWidth,
+        reference_frame_height: refHeight
+      }})
+    }});
+    const data = await resp.json();
+    if (data.status === 'success') {{
+      showStatus('Saved ' + zones.length + ' zones', false);
+    }} else {{
+      showStatus(data.detail || 'Save failed', true);
+    }}
+  }} catch (e) {{
+    showStatus('Error: ' + e.message, true);
+  }}
+}}
+
+async function loadExisting() {{
+  try {{
+    const resp = await fetch('/venues/' + venueId + '/zones', {{
+      headers: {{ 'X-API-Key': apiKey }}
+    }});
+    const data = await resp.json();
+    if (data.status === 'success' && data.data && data.data.zones) {{
+      zones = data.data.zones;
+      refWidth = data.data.reference_frame_width || 640;
+      refHeight = data.data.reference_frame_height || 480;
+      renderZoneList();
+      redraw();
+    }}
+  }} catch (e) {{}}
+}}
+
+function showStatus(msg, isErr) {{
+  const el = document.getElementById('status');
+  el.className = 'status ' + (isErr ? 'status-err' : 'status-ok');
+  el.textContent = msg;
+  setTimeout(() => el.textContent = '', 4000);
+}}
+
+loadExisting();
+redraw();
+</script>
+</body>
+</html>"""
+

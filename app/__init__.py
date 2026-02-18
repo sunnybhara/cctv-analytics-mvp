@@ -4,6 +4,7 @@ CCTV Analytics App Package
 FastAPI app factory with lifespan, CORS, and router registration.
 """
 
+import asyncio
 import threading
 from contextlib import asynccontextmanager
 
@@ -13,7 +14,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
-from app.config import CORS_ORIGINS
+from app.config import CORS_ORIGINS, EMBEDDING_RETENTION_DAYS
 
 # Rate limiter — keyed by client IP
 # TODO: Trust X-Forwarded-For if behind proxy in production
@@ -22,13 +23,44 @@ from app.database import database
 from app.video.models import preload_models
 
 
+def _startup_tasks():
+    """Run model preloading and initial embedding purge."""
+    preload_models()
+    # Run initial embedding purge on startup
+    try:
+        from app.video.embeddings import purge_expired_embeddings_sync
+        count = purge_expired_embeddings_sync()
+        if count > 0:
+            print(f"Startup: purged {count} expired embeddings (>{EMBEDDING_RETENTION_DAYS} days)")
+    except Exception as e:
+        print(f"Startup embedding purge error: {e}")
+
+
+async def _periodic_embedding_purge():
+    """Run embedding purge every 24 hours."""
+    from app.video.embeddings import purge_expired_embeddings_sync
+    while True:
+        await asyncio.sleep(86400)
+        try:
+            count = purge_expired_embeddings_sync()
+            if count > 0:
+                print(f"Periodic purge: removed {count} expired embeddings (>{EMBEDDING_RETENTION_DAYS} days)")
+        except Exception as e:
+            print(f"Periodic embedding purge error: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await database.connect()
-    # Pre-load models in background thread to not block startup
-    preload_thread = threading.Thread(target=preload_models, daemon=True)
-    preload_thread.start()
+    # Pre-load models + initial purge in background thread
+    startup_thread = threading.Thread(target=_startup_tasks, daemon=True)
+    startup_thread.start()
+    # Periodic embedding purge (every 24h)
+    if EMBEDDING_RETENTION_DAYS > 0:
+        purge_task = asyncio.create_task(_periodic_embedding_purge())
     yield
+    if EMBEDDING_RETENTION_DAYS > 0:
+        purge_task.cancel()
     await database.disconnect()
 
 

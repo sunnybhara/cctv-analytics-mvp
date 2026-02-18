@@ -4,14 +4,17 @@ Video Processing Pipeline
 Core video processing: YOLO11 detection, BoT-SORT tracking, demographics, ReID, behavior analysis.
 """
 
+import json
 import os
 import traceback
 from collections import Counter
 from datetime import datetime, timedelta
 from typing import Dict, Any
 
+import sqlalchemy
+
 from app.state import processing_jobs
-from app.database import events, visitor_embeddings
+from app.database import events, visitor_embeddings, venues
 from app.config import DATABASE_URL
 from app.video.deps import load_video_deps, cv2, reid_module, behavior_module
 from app.video.models import get_yolo_model, analyze_face_single_pass
@@ -44,15 +47,12 @@ def process_video_file(job_id: str, video_path: str, venue_id: str, db_url: str)
         processing_jobs[job_id]["status"] = "loading_model"
         processing_jobs[job_id]["message"] = "Loading YOLO11 model..."
 
-        # Use pre-loaded YOLO model (or load on demand if not ready)
-        model = get_yolo_model()
-
-        # Reset BoT-SORT tracker state from previous videos.
-        # The model is a singleton, so persist=True carries track IDs
-        # across calls. Without this reset, track IDs and Kalman filter
-        # state from the previous video leak into the new one.
-        if hasattr(model, 'predictor') and model.predictor is not None:
-            model.predictor = None
+        # Each worker thread gets its own YOLO model instance.
+        # This ensures independent BoT-SORT tracker state when running
+        # multiple videos in parallel. Ultralytics caches weights on disk
+        # so loading is fast (~100ms after first call).
+        from app.video.deps import YOLO as _YOLO
+        model = _YOLO("yolo11n.pt")
 
         # Initialize ReID for return visitor tracking
         reid_matcher = None
@@ -96,6 +96,21 @@ def process_video_file(job_id: str, video_path: str, venue_id: str, db_url: str)
         processing_jobs[job_id]["total_frames"] = total_frames
         processing_jobs[job_id]["fps"] = fps
         processing_jobs[job_id]["duration"] = duration_seconds
+
+        # --- LOAD ZONE CONFIG ---
+        zone_config = None
+        try:
+            from app.video.embeddings import _get_sync_engine
+            engine = _get_sync_engine(db_url)
+            with engine.connect() as conn:
+                row = conn.execute(
+                    sqlalchemy.select(venues.c.config).where(venues.c.id == venue_id)
+                ).fetchone()
+                if row and row[0]:
+                    raw = row[0] if isinstance(row[0], dict) else json.loads(row[0])
+                    zone_config = raw.get("zones_config")
+        except Exception:
+            pass
 
         # --- SCENE ANALYSIS PHASE ---
         processing_jobs[job_id]["status"] = "analyzing_scene"
@@ -209,7 +224,7 @@ def process_video_file(job_id: str, video_path: str, venue_id: str, db_url: str)
                     cy = (y1 + y2) / 2
                     h = y2 - y1
 
-                    zone = get_zone(cx, cy, frame_width, frame_height)
+                    zone = get_zone(cx, cy, frame_width, frame_height, zone_config)
 
                     if track_id not in track_data:
                         # New track - single-pass face analysis (demographics + embedding)

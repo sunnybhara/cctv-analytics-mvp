@@ -27,3 +27,9 @@ AUTH_ENABLED = os.getenv("AUTH_ENABLED", "true").lower() == "true"
 
 # Allowed video URL domains
 ALLOWED_VIDEO_DOMAINS = ["youtube.com", "youtu.be", "www.youtube.com"]
+
+# Embedding retention (days). Set to 0 to disable automatic purge.
+EMBEDDING_RETENTION_DAYS = int(os.getenv("EMBEDDING_RETENTION_DAYS", "90"))
+
+# Parallel video processing workers
+MAX_PARALLEL_WORKERS = int(os.getenv("MAX_PARALLEL_WORKERS", "2"))

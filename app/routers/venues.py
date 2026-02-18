@@ -1,20 +1,37 @@
 """
 Venue CRUD Endpoints
 ====================
-Create and list venues with optional geo-location.
+Create and list venues with optional geo-location, zone calibration, and embedding management.
 """
 
+import json
 import secrets
 from datetime import datetime
 
 import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
+from typing import List, Optional
 from app.auth import require_api_key, verify_venue_access
 
 from app.database import database, venues, events, alerts, jobs, visitor_embeddings
 from app.responses import success_response
 from app.schemas import VenueCreate
 from app.video.helpers import lat_long_to_h3
+
+MAX_ZONES_PER_VENUE = 10
+
+
+class ZonePolygon(BaseModel):
+    name: str
+    color: str = "#3b82f6"
+    points: List[List[float]]
+
+
+class ZoneConfig(BaseModel):
+    zones: List[ZonePolygon]
+    reference_frame_width: int = 640
+    reference_frame_height: int = 480
 
 router = APIRouter()
 
@@ -104,3 +121,64 @@ async def delete_venue(venue_id: str, auth_venue_id: str = Depends(require_api_k
     await database.execute(venues.delete().where(venues.c.id == venue_id))
 
     return success_response({"message": f"Venue '{venue_id}' and all associated data deleted"})
+
+
+@router.post("/venues/{venue_id}/purge-embeddings")
+async def purge_venue_embeddings(
+    venue_id: str,
+    older_than_days: int = Query(default=90, ge=1),
+    _api_key: str = Depends(require_api_key),
+):
+    """Purge expired visitor embeddings for a venue (GDPR right to erasure)."""
+    from app.video.embeddings import purge_expired_embeddings_sync
+    count = purge_expired_embeddings_sync(venue_id=venue_id, retention_days=older_than_days)
+    return success_response({"purged": count, "older_than_days": older_than_days})
+
+
+@router.get("/venues/{venue_id}/zones")
+async def get_venue_zones(venue_id: str, _api_key: str = Depends(require_api_key)):
+    """Get zone calibration config for a venue."""
+    row = await database.fetch_one(
+        sqlalchemy.select(venues.c.config).where(venues.c.id == venue_id)
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Venue not found")
+    config = row["config"] or {}
+    if isinstance(config, str):
+        config = json.loads(config)
+    return success_response(config.get("zones_config", {"zones": []}))
+
+
+@router.put("/venues/{venue_id}/zones")
+async def save_venue_zones(
+    venue_id: str,
+    zone_config: ZoneConfig,
+    _api_key: str = Depends(require_api_key),
+):
+    """Save zone calibration polygons for a venue. Max 10 zones."""
+    if len(zone_config.zones) > MAX_ZONES_PER_VENUE:
+        raise HTTPException(status_code=400, detail=f"Max {MAX_ZONES_PER_VENUE} zones per venue")
+
+    # Validate polygon points (minimum 3 vertices)
+    for z in zone_config.zones:
+        if len(z.points) < 3:
+            raise HTTPException(status_code=400, detail=f"Zone '{z.name}' needs at least 3 points")
+
+    row = await database.fetch_one(
+        sqlalchemy.select(venues.c.config).where(venues.c.id == venue_id)
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Venue not found")
+
+    existing_config = row["config"] or {}
+    if isinstance(existing_config, str):
+        existing_config = json.loads(existing_config)
+
+    existing_config["zones_config"] = zone_config.dict()
+
+    await database.execute(
+        venues.update().where(venues.c.id == venue_id).values(
+            config=json.dumps(existing_config)
+        )
+    )
+    return success_response({"message": f"Saved {len(zone_config.zones)} zones", "zones": len(zone_config.zones)})

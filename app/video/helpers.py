@@ -25,8 +25,41 @@ def lat_long_to_h3(lat: float, lng: float, resolution: int = 9) -> str:
         return None
 
 
-def get_zone(x: float, y: float, frame_width: int, frame_height: int) -> str:
-    """Divide frame into 3x3 grid zones."""
+def point_in_polygon(x: float, y: float, polygon: list) -> bool:
+    """Ray-casting point-in-polygon test."""
+    n = len(polygon)
+    inside = False
+    j = n - 1
+    for i in range(n):
+        xi, yi = polygon[i]
+        xj, yj = polygon[j]
+        if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi) + xi):
+            inside = not inside
+        j = i
+    return inside
+
+
+def get_zone(x: float, y: float, frame_width: int, frame_height: int, zone_config: dict = None) -> str:
+    """Get zone name for a point.
+
+    Uses custom polygon zones if configured for the venue, with coordinate
+    scaling for resolution mismatches. Falls back to 3x3 grid if no config.
+    """
+    if zone_config and zone_config.get("zones"):
+        # Scale coordinates if reference frame size differs from current frame
+        ref_w = zone_config.get("reference_frame_width", frame_width)
+        ref_h = zone_config.get("reference_frame_height", frame_height)
+        scale_x = ref_w / max(frame_width, 1)
+        scale_y = ref_h / max(frame_height, 1)
+        scaled_x = x * scale_x
+        scaled_y = y * scale_y
+
+        for zone in zone_config["zones"]:
+            if point_in_polygon(scaled_x, scaled_y, zone["points"]):
+                return zone["name"]
+        return "unknown"
+
+    # Fallback: 3x3 grid
     col = int(x / frame_width * 3)
     row = int(y / frame_height * 3)
     zones = [
