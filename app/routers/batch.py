@@ -296,14 +296,107 @@ async def batch_stats(_api_key: str = Depends(require_api_key)):
         sqlalchemy.select(func.sum(jobs.c.visitors_detected)).select_from(jobs).where(jobs.c.status == "completed")
     ) or 0
 
+    rejected = await database.fetch_val(
+        sqlalchemy.select(func.count()).select_from(jobs).where(jobs.c.status == "rejected")
+    )
+
     return success_response({
         "queue": {
             "pending": pending or 0,
             "processing": processing or 0,
             "completed": completed or 0,
             "failed": failed or 0,
-            "total": (pending or 0) + (processing or 0) + (completed or 0) + (failed or 0)
+            "rejected": rejected or 0,
+            "total": (pending or 0) + (processing or 0) + (completed or 0) + (failed or 0) + (rejected or 0)
         },
         "total_visitors_detected": total_visitors,
         "processor_running": _queue_processor_running
+    })
+
+
+@router.get("/api/batch/rejections")
+async def rejection_analytics(
+    venue_id: Optional[str] = Query(default=None),
+    days: int = Query(default=30, ge=1, le=365),
+    _api_key: str = Depends(require_api_key),
+):
+    """Rejection analytics — breakdown of why videos were rejected or failed.
+
+    If 50%+ of uploads are phone footage, users need education or a
+    different product tier (mobile audit mode).
+    """
+    from datetime import timedelta
+    cutoff = datetime.utcnow() - timedelta(days=days)
+
+    # Base filter
+    base_filter = jobs.c.created_at >= cutoff
+    if venue_id:
+        base_filter = base_filter & (jobs.c.venue_id == venue_id)
+
+    # Total uploads in period
+    total_uploads = await database.fetch_val(
+        sqlalchemy.select(func.count()).select_from(jobs).where(base_filter)
+    ) or 0
+
+    # Completed successfully
+    completed = await database.fetch_val(
+        sqlalchemy.select(func.count()).select_from(jobs).where(
+            base_filter & (jobs.c.status == "completed")
+        )
+    ) or 0
+
+    # Get all rejected/failed jobs with their error messages
+    problem_rows = await database.fetch_all(
+        sqlalchemy.select(
+            jobs.c.status, jobs.c.error_message, jobs.c.venue_id, jobs.c.video_name, jobs.c.created_at
+        ).where(
+            base_filter & jobs.c.status.in_(["rejected", "failed"])
+        ).order_by(jobs.c.created_at.desc())
+    )
+
+    # Categorize rejections by error type
+    categories = {}
+    recent_rejections = []
+    for row in problem_rows:
+        msg = (row["error_message"] or "").lower()
+        if "phone" in msg or "panning" in msg:
+            category = "phone_footage"
+        elif "codec" in msg or "format" in msg:
+            category = "unsupported_format"
+        elif "corrupt" in msg or "could not open" in msg:
+            category = "corrupt_video"
+        elif "timeout" in msg or "timed out" in msg:
+            category = "timeout"
+        elif row["status"] == "rejected":
+            category = "rejected_other"
+        else:
+            category = "processing_error"
+
+        categories[category] = categories.get(category, 0) + 1
+        if len(recent_rejections) < 10:
+            recent_rejections.append({
+                "video_name": row["video_name"],
+                "venue_id": row["venue_id"],
+                "status": row["status"],
+                "reason": row["error_message"],
+                "category": category,
+                "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+            })
+
+    rejection_rate = len(problem_rows) / max(total_uploads, 1)
+
+    return success_response({
+        "period_days": days,
+        "venue_id": venue_id,
+        "total_uploads": total_uploads,
+        "completed": completed,
+        "rejected_or_failed": len(problem_rows),
+        "rejection_rate": round(rejection_rate, 3),
+        "by_category": categories,
+        "recent": recent_rejections,
+        "recommendation": (
+            "High phone footage rate — consider adding mobile upload guidance or a mobile audit tier."
+            if categories.get("phone_footage", 0) / max(total_uploads, 1) > 0.3
+            else None
+        ),
     })
