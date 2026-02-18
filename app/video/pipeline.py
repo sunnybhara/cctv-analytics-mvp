@@ -6,6 +6,7 @@ Core video processing: YOLO11 detection, BoT-SORT tracking, demographics, ReID, 
 
 import json
 import os
+import threading
 import traceback
 from collections import Counter
 from datetime import datetime, timedelta
@@ -23,6 +24,7 @@ from app.video.embeddings import load_venue_embeddings_sync, save_visitor_embedd
 from app.video.scene_analyzer import (
     analyze_scene, generate_tracker_config, compute_frame_interval,
     is_valid_track, peak_density_floor, write_temp_tracker_yaml,
+    check_phone_footage, PhoneFootageError,
 )
 
 # Path to BoT-SORT config (fallback if scene analysis fails)
@@ -134,10 +136,26 @@ def process_video_file(job_id: str, video_path: str, venue_id: str, db_url: str)
             "is_dark": scene_profile.is_dark,
             "is_shaky": scene_profile.is_shaky,
             "is_crowded": scene_profile.is_crowded,
+            "is_phone_footage": scene_profile.is_phone_footage,
             "max_detections": scene_profile.max_detections,
             "motion_score": round(scene_profile.motion_score, 3),
             "crowd_density": round(scene_profile.crowd_density, 3),
+            "aspect_ratio": scene_profile.aspect_ratio,
+            "global_motion_ratio": scene_profile.global_motion_ratio,
         }
+        processing_jobs[job_id]["worker_id"] = threading.get_ident()
+        if zone_config:
+            processing_jobs[job_id]["zone_config_zones"] = len(zone_config.get("zones", []))
+
+        # Reject phone/panning footage before wasting processing time
+        try:
+            check_phone_footage(scene_profile)
+        except PhoneFootageError as e:
+            processing_jobs[job_id]["status"] = "rejected"
+            processing_jobs[job_id]["message"] = str(e)
+            processing_jobs[job_id]["rejection_code"] = e.code
+            print(f"Video rejected: {e}")
+            return
 
         # Generate adaptive tracker config
         tracker_params = generate_tracker_config(scene_profile)

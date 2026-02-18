@@ -135,15 +135,26 @@ def _process_queue_sync():
 
                         final_status = processing_jobs.get(job_id, {})
                         visitors = final_status.get("visitors_detected", 0)
+                        job_status = final_status.get("status", "completed")
 
-                        loop.run_until_complete(db.execute(
-                            jobs.update().where(jobs.c.id == job_id).values(
-                                status="completed",
-                                completed_at=datetime.utcnow(),
-                                progress=100,
-                                visitors_detected=visitors
-                            )
-                        ))
+                        # Handle rejected videos (phone/panning footage)
+                        if job_status == "rejected":
+                            loop.run_until_complete(db.execute(
+                                jobs.update().where(jobs.c.id == job_id).values(
+                                    status="rejected",
+                                    completed_at=datetime.utcnow(),
+                                    error_message=final_status.get("message", "Video rejected")
+                                )
+                            ))
+                        else:
+                            loop.run_until_complete(db.execute(
+                                jobs.update().where(jobs.c.id == job_id).values(
+                                    status="completed",
+                                    completed_at=datetime.utcnow(),
+                                    progress=100,
+                                    visitors_detected=visitors
+                                )
+                            ))
 
                     except Exception as e:
                         loop.run_until_complete(db.execute(

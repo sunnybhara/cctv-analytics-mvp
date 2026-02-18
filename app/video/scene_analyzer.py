@@ -13,6 +13,13 @@ import numpy as np
 import yaml
 
 
+class PhoneFootageError(Exception):
+    """Raised when phone/panning footage is detected."""
+    def __init__(self, message, code="PHONE_FOOTAGE"):
+        self.code = code
+        super().__init__(message)
+
+
 @dataclass
 class SceneProfile:
     avg_brightness: float       # 0-255 mean pixel intensity
@@ -26,6 +33,9 @@ class SceneProfile:
     is_crowded: bool            # max_detections >= 8 or crowd_density > 0.3
     fps: float
     duration_seconds: float
+    aspect_ratio: float = 0.0          # width/height (phone: ~0.56 or ~1.78)
+    global_motion_ratio: float = 0.0   # global vs local motion (>0.7 = panning)
+    is_phone_footage: bool = False
 
 
 def analyze_scene(cap, model, total_frames, fps, frame_width, frame_height):
@@ -94,7 +104,9 @@ def analyze_scene(cap, model, total_frames, fps, frame_width, frame_height):
         frame_idx += 1
 
     # Compute motion score via optical flow between consecutive samples
+    # Also separate global (camera) motion from local (person) motion
     motion_magnitudes = []
+    global_motion_ratios = []
     for i in range(1, len(sampled_gray_small)):
         prev = sampled_gray_small[i - 1]
         curr = sampled_gray_small[i]
@@ -104,12 +116,27 @@ def analyze_scene(cap, model, total_frames, fps, frame_width, frame_height):
             iterations=3, poly_n=5, poly_sigma=1.2, flags=0
         )
         mag, _ = _cv2.cartToPolar(flow[..., 0], flow[..., 1])
-        motion_magnitudes.append(float(np.mean(mag)))
+        mean_mag = float(np.mean(mag))
+        motion_magnitudes.append(mean_mag)
+
+        # Global motion: median flow (camera pan moves everything uniformly)
+        # Local motion: std of flow (people moving independently varies spatially)
+        median_flow_x = float(np.median(flow[..., 0]))
+        median_flow_y = float(np.median(flow[..., 1]))
+        global_mag = (median_flow_x**2 + median_flow_y**2)**0.5
+        local_mag = float(np.std(mag))
+        if mean_mag > 0.5:  # Only compute ratio when there's meaningful motion
+            global_motion_ratios.append(global_mag / (global_mag + local_mag + 1e-6))
 
     avg_brightness = float(np.mean(brightnesses)) if brightnesses else 128.0
     brightness_std = float(np.std(brightnesses)) if len(brightnesses) > 1 else 0.0
     motion_score = float(np.mean(motion_magnitudes)) if motion_magnitudes else 0.0
     max_density = max(density_ratios) if density_ratios else 0.0
+    aspect_ratio = frame_width / max(frame_height, 1)
+    global_motion_ratio = float(np.mean(global_motion_ratios)) if global_motion_ratios else 0.0
+
+    # Detect phone/panning footage
+    is_phone = _detect_phone_footage(motion_score, aspect_ratio, global_motion_ratio)
 
     # Reset video to start
     cap.set(_cv2.CAP_PROP_POS_FRAMES, 0)
@@ -126,7 +153,55 @@ def analyze_scene(cap, model, total_frames, fps, frame_width, frame_height):
         is_crowded=peak_detections >= 8 or max_density > 0.3,
         fps=fps,
         duration_seconds=duration,
+        aspect_ratio=round(aspect_ratio, 3),
+        global_motion_ratio=round(global_motion_ratio, 3),
+        is_phone_footage=is_phone,
     )
+
+
+# Phone/panning detection thresholds
+_PHONE_ASPECT_RATIOS = {
+    (9, 16), (16, 9),   # Standard phone vertical/horizontal
+    (3, 4), (4, 3),     # Older phones / tablets
+}
+_PHONE_SHAKY_THRESHOLD = 5.0       # Higher than normal 3.0
+_PHONE_PANNING_THRESHOLD = 0.55    # Global vs local motion ratio (>0.55 = camera dominates)
+_PHONE_ASPECT_TOLERANCE = 0.08     # How close to exact phone ratio
+
+
+def _is_phone_aspect_ratio(aspect_ratio):
+    """Check if aspect ratio matches common phone ratios."""
+    for w, h in _PHONE_ASPECT_RATIOS:
+        target = w / h
+        if abs(aspect_ratio - target) < _PHONE_ASPECT_TOLERANCE:
+            return True
+    return False
+
+
+def _detect_phone_footage(motion_score, aspect_ratio, global_motion_ratio):
+    """Detect phone/panning footage based on scene analysis metrics.
+
+    Returns True if footage appears to be handheld phone with significant panning.
+    """
+    is_phone_ratio = _is_phone_aspect_ratio(aspect_ratio)
+    is_very_shaky = motion_score > _PHONE_SHAKY_THRESHOLD
+    is_panning = global_motion_ratio > _PHONE_PANNING_THRESHOLD
+
+    # Must have phone aspect ratio AND (very shaky OR dominant panning motion)
+    return is_phone_ratio and (is_very_shaky or is_panning)
+
+
+def check_phone_footage(profile):
+    """Raise PhoneFootageError if footage is detected as phone/panning video.
+
+    Call this after analyze_scene() but before starting the main processing loop.
+    """
+    if profile.is_phone_footage:
+        raise PhoneFootageError(
+            f"Phone/panning footage detected (aspect_ratio={profile.aspect_ratio:.2f}, "
+            f"motion={profile.motion_score:.1f}, panning_ratio={profile.global_motion_ratio:.2f}). "
+            f"Use static CCTV camera for accurate visitor counting."
+        )
 
 
 def generate_tracker_config(profile):
